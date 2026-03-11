@@ -12,13 +12,14 @@
         gtag('js', new Date());
         gtag('config', 'G-RRGY51J5ZH');
     </script>
-    <link rel="index" title="Index" href="../genindex/" /><link rel="search" title="Search" href="../search/" /><link rel="next" title="Embedding Visualizations" href="../embedded_visualizations/" /><link rel="prev" title="Frame Conventions" href="../conventions/" />
+    <link rel="index" title="Index" href="../genindex/" /><link rel="search" title="Search" href="../search/" /><link rel="next" title="Embedded Visualizations" href="../embedded_visualizations/" /><link rel="prev" title="Performance Tips" href="../performance_tips/" />
 
     <!-- Generated with Sphinx 8.0.2 and Furo 2024.08.06 -->
         <title>Development - viser</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
     <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=5976cbfc" />
     <link rel="stylesheet" type="text/css" href="../_static/ansi.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=302659d7" />
@@ -230,7 +231,7 @@
 
     async function getViserVersionList() {
       // This index.txt file is written by the docs.yml GitHub action.
-      // https://github.com/nerfstudio-project/viser/blob/main/.github/workflows/docs.yml
+      // https://github.com/viser-project/viser/blob/main/.github/workflows/docs.yml
       const response = await fetch("https://viser.studio/versions/index.txt", {
         cache: "no-cache",
       });
@@ -280,7 +281,7 @@
   <script async defer src="https://buttons.github.io/buttons.js"></script>
   <a
     class="github-button"
-    href="https://github.com/nerfstudio-project/viser"
+    href="https://github.com/viser-project/viser"
     data-color-scheme="no-preference: light; light: light; dark: light;"
     data-size="large"
     data-show-count="true"
@@ -312,6 +313,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../examples/scene/background_composite/">Depth compositing</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../examples/scene/set_up_direction/">Set up direction</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../examples/scene/gaussian_splats/">Gaussian splats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/scene/fog/">Distance fog</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../examples/gui/">GUI Controls</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of GUI Controls</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
@@ -378,9 +380,11 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Notes</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../interactive_notebooks/">Interactive Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../conventions/">Frame Conventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance_tips/">Performance Tips</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Development</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../embedded_visualizations/">Embedding Visualizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../embedded_visualizations/">Embedded Visualizations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../citation/">Citation</a></li>
 </ul>
 
@@ -428,33 +432,34 @@
 development. We assume that the repository is cloned to <code class="docutils literal notranslate"><span class="pre">~/viser</span></code>.</p>
 <section id="python-install">
 <h2>Python install<a class="headerlink" href="#python-install" title="Link to this heading">¶</a></h2>
-<p>We recommend an editable install for Python development, ideally in a virtual
-environment (eg via conda).</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Install package.</span>
+<p>We recommend using <a class="reference external" href="https://docs.astral.sh/uv/">uv</a> for Python development.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Install uv (if not already installed).</span>
+curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
+
+<span class="c1"># Run any example directly (uv handles dependencies automatically).</span>
 <span class="nb">cd</span><span class="w"> </span>~/viser
-pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
-
-<span class="c1"># Install example dependencies.</span>
-pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.<span class="o">[</span>examples<span class="o">]</span>
+uv<span class="w"> </span>run<span class="w"> </span>--extra<span class="w"> </span>examples<span class="w"> </span>python<span class="w"> </span>examples/00_getting_started/00_hello_world.py
 </pre></div>
 </div>
-<p>After installation, any of the example scripts (<code class="docutils literal notranslate"><span class="pre">~/viser/examples</span></code>) should be
-runnable. A few of them require downloading assets, which can be done via the
-scripts in <code class="docutils literal notranslate"><span class="pre">~/viser/examples/assets</span></code>.</p>
-<p><strong>Linting, formatting, type-checking.</strong></p>
-<p>First, install developer tools:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Using pip.</span>
-pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.<span class="o">[</span>dev<span class="o">]</span>
-pre-commit<span class="w"> </span>install
-</pre></div>
-</div>
-<p>For code quality, rely primarily on <code class="docutils literal notranslate"><span class="pre">pyright</span></code> and <code class="docutils literal notranslate"><span class="pre">ruff</span></code>:</p>
+</section>
+<section id="linting-formatting-type-checking">
+<h2>Linting, formatting, type-checking<a class="headerlink" href="#linting-formatting-type-checking" title="Link to this heading">¶</a></h2>
+<p>For code quality, we use <code class="docutils literal notranslate"><span class="pre">pyright</span></code> for type checking and <code class="docutils literal notranslate"><span class="pre">ruff</span></code> for linting
+and formatting.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check static types.</span>
-pyright
+uv<span class="w"> </span>run<span class="w"> </span>--extra<span class="w"> </span>dev<span class="w"> </span>pyright
 
-<span class="c1"># Lint and format.</span>
-ruff<span class="w"> </span>check<span class="w"> </span>--fix<span class="w"> </span>.
-ruff<span class="w"> </span>format<span class="w"> </span>.
+<span class="c1"># Lint and auto-fix issues.</span>
+uvx<span class="w"> </span>ruff<span class="w"> </span>check<span class="w"> </span>--fix
+
+<span class="c1"># Format code.</span>
+uvx<span class="w"> </span>ruff<span class="w"> </span>format
+</pre></div>
+</div>
+</section>
+<section id="running-tests">
+<h2>Running tests<a class="headerlink" href="#running-tests" title="Link to this heading">¶</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>run<span class="w"> </span>--extra<span class="w"> </span>dev<span class="w"> </span>pytest
 </pre></div>
 </div>
 </section>
@@ -487,7 +492,7 @@ version compatibility to prevent security issues and crashes from mismatched ver
 <p>To synchronize message definitions and version information between the Python backend and TypeScript frontend,
 use the <code class="docutils literal notranslate"><span class="pre">sync_client_server.py</span></code> script:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>~/viser
-python<span class="w"> </span>sync_client_server.py
+uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>sync_client_server.py<span class="w"> </span>--sync-messages<span class="w"> </span>--sync-version
 </pre></div>
 </div>
 <p>This script:</p>
@@ -508,7 +513,7 @@ python<span class="w"> </span>sync_client_server.py
 <p>For client development, we can start by launching a relevant Python script. The
 examples are a good place to start:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>~/viser/examples
-python<span class="w"> </span>05_camera_commands.py
+uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>05_camera_commands.py
 </pre></div>
 </div>
 <p>When a <code class="docutils literal notranslate"><span class="pre">viser</span></code> script is launched, two URLs will be printed:</p>
@@ -527,10 +532,9 @@ steps.</p>
 <p><strong>Installing dependencies.</strong></p>
 <ol class="arabic">
 <li><p><a class="reference external" href="https://nodejs.dev/en/download/package-manager">Install nodejs.</a></p></li>
-<li><p><a class="reference external" href="https://yarnpkg.com/getting-started/install">Install yarn.</a></p></li>
 <li><p>Install dependencies.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>~/viser/src/viser/client
-yarn<span class="w"> </span>install
+npm<span class="w"> </span>install
 </pre></div>
 </div>
 </li>
@@ -538,7 +542,7 @@ yarn<span class="w"> </span>install
 <p><strong>Launching client.</strong></p>
 <p>To launch the client, we can run:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>~/viser/src/viser/client
-yarn<span class="w"> </span>start
+npm<span class="w"> </span>run<span class="w"> </span>dev
 </pre></div>
 </div>
 <p>from the <code class="docutils literal notranslate"><span class="pre">viser/src/viser/client</span></code> directory. After opening the client in a web
@@ -565,18 +569,18 @@ one of:</p>
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">Embedding Visualizations</div>
+                <div class="title">Embedded Visualizations</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="../conventions/">
+          <a class="prev-page" href="../performance_tips/">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">Frame Conventions</div>
+                <div class="title">Performance Tips</div>
                 
               </div>
             </a>
@@ -593,7 +597,7 @@ one of:</p>
           </div>
           <div class="right-details">
             <div class="icons">
-              <a class="muted-link " href="https://github.com/nerfstudio-project/viser" aria-label="GitHub">
+              <a class="muted-link " href="https://github.com/viser-project/viser" aria-label="GitHub">
             <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 16 16">
                 <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path>
             </svg>
@@ -619,6 +623,8 @@ one of:</p>
             <ul>
 <li><a class="reference internal" href="#">Development</a><ul>
 <li><a class="reference internal" href="#python-install">Python install</a></li>
+<li><a class="reference internal" href="#linting-formatting-type-checking">Linting, formatting, type-checking</a></li>
+<li><a class="reference internal" href="#running-tests">Running tests</a></li>
 <li><a class="reference internal" href="#client-server-synchronization">Client-Server Synchronization</a><ul>
 <li><a class="reference internal" href="#message-definitions">Message Definitions</a></li>
 <li><a class="reference internal" href="#version-compatibility">Version Compatibility</a></li>

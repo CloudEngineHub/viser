@@ -15,10 +15,11 @@
     <link rel="index" title="Index" href="../genindex/" /><link rel="search" title="Search" href="../search/" /><link rel="next" title="Citation" href="../citation/" /><link rel="prev" title="Development" href="../development/" />
 
     <!-- Generated with Sphinx 8.0.2 and Furo 2024.08.06 -->
-        <title>Embedding Visualizations - viser</title>
+        <title>Embedded Visualizations - viser</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
     <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=5976cbfc" />
     <link rel="stylesheet" type="text/css" href="../_static/ansi.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=302659d7" />
@@ -230,7 +231,7 @@
 
     async function getViserVersionList() {
       // This index.txt file is written by the docs.yml GitHub action.
-      // https://github.com/nerfstudio-project/viser/blob/main/.github/workflows/docs.yml
+      // https://github.com/viser-project/viser/blob/main/.github/workflows/docs.yml
       const response = await fetch("https://viser.studio/versions/index.txt", {
         cache: "no-cache",
       });
@@ -280,7 +281,7 @@
   <script async defer src="https://buttons.github.io/buttons.js"></script>
   <a
     class="github-button"
-    href="https://github.com/nerfstudio-project/viser"
+    href="https://github.com/viser-project/viser"
     data-color-scheme="no-preference: light; light: light; dark: light;"
     data-size="large"
     data-show-count="true"
@@ -312,6 +313,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../examples/scene/background_composite/">Depth compositing</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../examples/scene/set_up_direction/">Set up direction</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../examples/scene/gaussian_splats/">Gaussian splats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/scene/fog/">Distance fog</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../examples/gui/">GUI Controls</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of GUI Controls</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
@@ -378,9 +380,11 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Notes</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../interactive_notebooks/">Interactive Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../conventions/">Frame Conventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance_tips/">Performance Tips</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../development/">Development</a></li>
-<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Embedding Visualizations</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Embedded Visualizations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../citation/">Citation</a></li>
 </ul>
 
@@ -422,8 +426,8 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="embedding-visualizations">
-<h1>Embedding Visualizations<a class="headerlink" href="#embedding-visualizations" title="Link to this heading">¶</a></h1>
+          <section id="embedded-visualizations">
+<h1>Embedded Visualizations<a class="headerlink" href="#embedded-visualizations" title="Link to this heading">¶</a></h1>
 <p>This guide describes how to export 3D visualizations from Viser and embed them into static webpages. The process involves three main steps: exporting scene state, creating a client build, and hosting the visualization.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
@@ -526,7 +530,7 @@ calling <code class="xref py py-meth docutils literal notranslate"><span class="
 <p>To serve the 3D visualization, you’ll need two things:</p>
 <ol class="arabic simple">
 <li><p>The <code class="docutils literal notranslate"><span class="pre">.viser</span></code> file containing your scene data</p></li>
-<li><p>A build of the Viser client (static HTML/JS/CSS files)</p></li>
+<li><p>A build of the Viser client</p></li>
 </ol>
 <p>With Viser installed, create the Viser client build using the command-line tool:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># View available options</span>
@@ -547,7 +551,6 @@ viser-build-client<span class="w"> </span>--output-dir<span class="w"> </span>vi
 │   └── recording.viser    # Your exported scene data
 └── viser-client/
     ├── index.html         # Generated client files
-    ├── assets/
     └── ...
 </pre></div>
 </div>
@@ -592,16 +595,53 @@ git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </
 </section>
 <section id="step-4-setting-the-initial-camera-pose">
 <h2>Step 4: Setting the initial camera pose<a class="headerlink" href="#step-4-setting-the-initial-camera-pose" title="Link to this heading">¶</a></h2>
-<p>To set the initial camera pose, you can add a <code class="docutils literal notranslate"><span class="pre">&amp;logCamera</span></code> parameter to the URL:</p>
+<section id="using-python">
+<h3>Using Python<a class="headerlink" href="#using-python" title="Link to this heading">¶</a></h3>
+<p>The easiest way to set the initial camera pose is using <a class="reference internal" href="../api/core/server/#viser.ViserServer.initial_camera" title="viser.ViserServer.initial_camera"><code class="xref py py-attr docutils literal notranslate"><span class="pre">viser.ViserServer.initial_camera</span></code></a>
+before serializing or calling <a class="reference internal" href="../api/core/scene_api/#viser.SceneApi.show" title="viser.SceneApi.show"><code class="xref py py-meth docutils literal notranslate"><span class="pre">show()</span></code></a>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">viser</span>
+
+<span class="n">server</span> <span class="o">=</span> <span class="n">viser</span><span class="o">.</span><span class="n">ViserServer</span><span class="p">()</span>
+<span class="n">server</span><span class="o">.</span><span class="n">scene</span><span class="o">.</span><span class="n">add_box</span><span class="p">(</span><span class="s2">&quot;/box&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="p">(</span><span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">dimensions</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+<span class="c1"># Set the initial camera pose.</span>
+<span class="n">server</span><span class="o">.</span><span class="n">initial_camera</span><span class="o">.</span><span class="n">position</span> <span class="o">=</span> <span class="p">(</span><span class="mf">2.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">4.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+<span class="n">server</span><span class="o">.</span><span class="n">initial_camera</span><span class="o">.</span><span class="n">look_at</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+<span class="n">server</span><span class="o">.</span><span class="n">initial_camera</span><span class="o">.</span><span class="n">up</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+
+<span class="c1"># The initial camera is included when serializing.</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">server</span><span class="o">.</span><span class="n">get_scene_serializer</span><span class="p">()</span><span class="o">.</span><span class="n">serialize</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>This sets the camera pose that will be used when the visualization first loads.
+See <a class="reference internal" href="../api/handles/camera_handles/#viser.InitialCameraConfig" title="viser.InitialCameraConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">viser.InitialCameraConfig</span></code></a> for all available options including
+<code class="docutils literal notranslate"><span class="pre">fov</span></code>, <code class="docutils literal notranslate"><span class="pre">near</span></code>, and <code class="docutils literal notranslate"><span class="pre">far</span></code>.</p>
+</section>
+<section id="using-url-parameters">
+<h3>Using URL Parameters<a class="headerlink" href="#using-url-parameters" title="Link to this heading">¶</a></h3>
+<p>You can also override the initial camera pose using URL parameters. This is
+useful for fine-tuning the camera position after export.</p>
+<p>To find the camera parameters, add a <code class="docutils literal notranslate"><span class="pre">&amp;logCamera</span></code> parameter to the URL:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">http://localhost:8000/viser-client/?playbackPath=http://localhost:8000/recordings/recording.viser&amp;logCamera</span></code></p></li>
 </ul>
 <p>Then, open your Javascript console. You should see the camera pose printed
 whenever you move the camera. It should look something like this:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">&amp;initialCameraPosition=2.216,-4.233,-0.947&amp;initialCameraLookAt=-0.115,0.346,-0.192&amp;initialCameraUp=0.329,-0.904,0.272</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&amp;initialCameraPosition=2.216,-4.233,-0.947&amp;initialCameraLookAt=-0.115,0.346,-0.192&amp;initialCameraUp=0.329,-0.904,0.272&amp;initialCameraFov=0.7854&amp;initialCameraNear=0.01&amp;initialCameraFar=1000</span></code></p></li>
 </ul>
-<p>You can then add this string to the URL to set the initial camera pose.</p>
+<p>You can then add this string to the URL to set the initial camera pose. URL
+parameters take priority over the Python-configured initial camera.</p>
+<p>Available URL parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">initialCameraPosition</span></code> - Camera position as <code class="docutils literal notranslate"><span class="pre">x,y,z</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">initialCameraLookAt</span></code> - Look-at target as <code class="docutils literal notranslate"><span class="pre">x,y,z</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">initialCameraUp</span></code> - Up direction as <code class="docutils literal notranslate"><span class="pre">x,y,z</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">initialCameraFov</span></code> - Field of view in radians</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">initialCameraNear</span></code> - Near clipping plane distance</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">initialCameraFar</span></code> - Far clipping plane distance</p></li>
+</ul>
+</section>
 </section>
 </section>
 
@@ -643,7 +683,7 @@ whenever you move the camera. It should look something like this:</p>
           </div>
           <div class="right-details">
             <div class="icons">
-              <a class="muted-link " href="https://github.com/nerfstudio-project/viser" aria-label="GitHub">
+              <a class="muted-link " href="https://github.com/viser-project/viser" aria-label="GitHub">
             <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 16 16">
                 <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path>
             </svg>
@@ -667,7 +707,7 @@ whenever you move the camera. It should look something like this:</p>
         <div class="toc-tree-container">
           <div class="toc-tree">
             <ul>
-<li><a class="reference internal" href="#">Embedding Visualizations</a><ul>
+<li><a class="reference internal" href="#">Embedded Visualizations</a><ul>
 <li><a class="reference internal" href="#step-1-exporting-scene-state">Step 1: Exporting Scene State</a><ul>
 <li><a class="reference internal" href="#static-scene-export">Static Scene Export</a></li>
 <li><a class="reference internal" href="#dynamic-scene-export">Dynamic Scene Export</a></li>
@@ -680,7 +720,11 @@ whenever you move the camera. It should look something like this:</p>
 <li><a class="reference internal" href="#github-pages-deployment">GitHub Pages Deployment</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#step-4-setting-the-initial-camera-pose">Step 4: Setting the initial camera pose</a></li>
+<li><a class="reference internal" href="#step-4-setting-the-initial-camera-pose">Step 4: Setting the initial camera pose</a><ul>
+<li><a class="reference internal" href="#using-python">Using Python</a></li>
+<li><a class="reference internal" href="#using-url-parameters">Using URL Parameters</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>

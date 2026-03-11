@@ -17,6 +17,7 @@
 <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
     <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=5976cbfc" />
     <link rel="stylesheet" type="text/css" href="../_static/ansi.css" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=302659d7" />
@@ -228,7 +229,7 @@
 
     async function getViserVersionList() {
       // This index.txt file is written by the docs.yml GitHub action.
-      // https://github.com/nerfstudio-project/viser/blob/main/.github/workflows/docs.yml
+      // https://github.com/viser-project/viser/blob/main/.github/workflows/docs.yml
       const response = await fetch("https://viser.studio/versions/index.txt", {
         cache: "no-cache",
       });
@@ -278,7 +279,7 @@
   <script async defer src="https://buttons.github.io/buttons.js"></script>
   <a
     class="github-button"
-    href="https://github.com/nerfstudio-project/viser"
+    href="https://github.com/viser-project/viser"
     data-color-scheme="no-preference: light; light: light; dark: light;"
     data-size="large"
     data-show-count="true"
@@ -310,6 +311,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../examples/scene/background_composite/">Depth compositing</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../examples/scene/set_up_direction/">Set up direction</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../examples/scene/gaussian_splats/">Gaussian splats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/scene/fog/">Distance fog</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../examples/gui/">GUI Controls</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of GUI Controls</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
@@ -376,9 +378,11 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Notes</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../interactive_notebooks/">Interactive Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../conventions/">Frame Conventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance_tips/">Performance Tips</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../development/">Development</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../embedded_visualizations/">Embedding Visualizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../embedded_visualizations/">Embedded Visualizations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../citation/">Citation</a></li>
 </ul>
 
@@ -518,6 +522,8 @@
         <li><a href="../api/core/scene_api/#viser.SceneApi.add_camera_frustum">add_camera_frustum() (viser.SceneApi method)</a>
 </li>
         <li><a href="../api/core/gui_api/#viser.GuiApi.add_checkbox">add_checkbox() (viser.GuiApi method)</a>
+</li>
+        <li><a href="../api/core/scene_api/#viser.SceneApi.add_cylinder">add_cylinder() (viser.SceneApi method)</a>
 </li>
         <li><a href="../api/core/gui_api/#viser.GuiApi.add_dropdown">add_dropdown() (viser.GuiApi method)</a>
 </li>
@@ -839,6 +845,8 @@
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.ANCHOR">ANCHOR (viser.Icon attribute)</a>
 </li>
+        <li><a href="../api/handles/scene_handles/#viser.LabelHandle.anchor">anchor (viser.LabelHandle attribute)</a>
+</li>
         <li><a href="../api/advanced/icons/#viser.Icon.ANCHOR_OFF">ANCHOR_OFF (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.ANGLE">ANGLE (viser.Icon attribute)</a>
@@ -933,10 +941,10 @@
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.ARROW_AUTOFIT_UP">ARROW_AUTOFIT_UP (viser.Icon attribute)</a>
 </li>
-        <li><a href="../api/advanced/icons/#viser.Icon.ARROW_AUTOFIT_WIDTH">ARROW_AUTOFIT_WIDTH (viser.Icon attribute)</a>
-</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="../api/advanced/icons/#viser.Icon.ARROW_AUTOFIT_WIDTH">ARROW_AUTOFIT_WIDTH (viser.Icon attribute)</a>
+</li>
         <li><a href="../api/advanced/icons/#viser.Icon.ARROW_BACK">ARROW_BACK (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.ARROW_BACK_UP">ARROW_BACK_UP (viser.Icon attribute)</a>
@@ -1557,6 +1565,8 @@
 </li>
         <li><a href="../api/handles/scene_handles/#viser.BatchedMeshHandle.batched_colors">batched_colors (viser.BatchedMeshHandle attribute)</a>
 </li>
+        <li><a href="../api/handles/scene_handles/#viser.BatchedMeshHandle.batched_opacities">batched_opacities (viser.BatchedMeshHandle attribute)</a>
+</li>
         <li><a href="../api/handles/scene_handles/#viser.BatchedAxesHandle.batched_positions">batched_positions (viser.BatchedAxesHandle attribute)</a>
 
         <ul>
@@ -2103,10 +2113,10 @@
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.BRAND_D3">BRAND_D3 (viser.Icon attribute)</a>
 </li>
-        <li><a href="../api/advanced/icons/#viser.Icon.BRAND_DAYS_COUNTER">BRAND_DAYS_COUNTER (viser.Icon attribute)</a>
-</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="../api/advanced/icons/#viser.Icon.BRAND_DAYS_COUNTER">BRAND_DAYS_COUNTER (viser.Icon attribute)</a>
+</li>
         <li><a href="../api/advanced/icons/#viser.Icon.BRAND_DCOS">BRAND_DCOS (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.BRAND_DEBIAN">BRAND_DEBIAN (viser.Icon attribute)</a>
@@ -3043,6 +3053,8 @@
 </li>
         <li><a href="../api/handles/scene_handles/#viser.GridHandle.cell_thickness">cell_thickness (viser.GridHandle attribute)</a>
 </li>
+        <li><a href="../api/handles/scene_handles/#viser.GaussianSplatHandle.centers">centers (viser.GaussianSplatHandle property)</a>
+</li>
         <li><a href="../api/advanced/icons/#viser.Icon.CERTIFICATE">CERTIFICATE (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.CERTIFICATE_2">CERTIFICATE_2 (viser.Icon attribute)</a>
@@ -3461,10 +3473,10 @@
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.CIRCUIT_SWITCH_OPEN">CIRCUIT_SWITCH_OPEN (viser.Icon attribute)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="../api/advanced/icons/#viser.Icon.CIRCUIT_VOLTMETER">CIRCUIT_VOLTMETER (viser.Icon attribute)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="../api/advanced/uplot/#viser.uplot.Scale.clamp">clamp (viser.uplot.Scale attribute)</a>
 </li>
         <li><a href="../api/advanced/uplot/#viser.uplot.Series.class">class (viser.uplot.Series attribute)</a>
@@ -3740,6 +3752,8 @@
 </li>
           <li><a href="../api/handles/gui_handles/#viser.GuiButtonHandle.color">(viser.GuiButtonHandle attribute)</a>
 </li>
+          <li><a href="../api/handles/gui_handles/#viser.GuiUploadButtonHandle.color">(viser.GuiUploadButtonHandle attribute)</a>
+</li>
           <li><a href="../api/handles/scene_handles/#viser.IcosphereHandle.color">(viser.IcosphereHandle attribute)</a>
 </li>
           <li><a href="../api/handles/scene_handles/#viser.MeshHandle.color">(viser.MeshHandle attribute)</a>
@@ -3829,6 +3843,8 @@
 </li>
         <li><a href="../api/core/scene_api/#viser.SceneApi.configure_environment_map">configure_environment_map() (viser.SceneApi method)</a>
 </li>
+        <li><a href="../api/core/scene_api/#viser.SceneApi.configure_fog">configure_fog() (viser.SceneApi method)</a>
+</li>
         <li><a href="../api/core/gui_api/#viser.GuiApi.configure_theme">configure_theme() (viser.GuiApi method)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.CONFUCIUS">CONFUCIUS (viser.Icon attribute)</a>
@@ -3912,6 +3928,8 @@
         <li><a href="../api/advanced/icons/#viser.Icon.CORNER_UP_RIGHT">CORNER_UP_RIGHT (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.CORNER_UP_RIGHT_DOUBLE">CORNER_UP_RIGHT_DOUBLE (viser.Icon attribute)</a>
+</li>
+        <li><a href="../api/handles/scene_handles/#viser.GaussianSplatHandle.covariances">covariances (viser.GaussianSplatHandle property)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.CPU">CPU (viser.Icon attribute)</a>
 </li>
@@ -4233,8 +4251,12 @@
 </li>
         <li><a href="../api/auxiliary/extras/#viser.extras.Record3dFrame.depth">depth (viser.extras.Record3dFrame attribute)</a>
 </li>
-        <li><a href="../api/handles/scene_handles/#viser.TransformControlsHandle.depth_test">depth_test (viser.TransformControlsHandle attribute)</a>
+        <li><a href="../api/handles/scene_handles/#viser.LabelHandle.depth_test">depth_test (viser.LabelHandle attribute)</a>
+
+        <ul>
+          <li><a href="../api/handles/scene_handles/#viser.TransformControlsHandle.depth_test">(viser.TransformControlsHandle attribute)</a>
 </li>
+        </ul></li>
         <li><a href="../api/advanced/icons/#viser.Icon.DESELECT">DESELECT (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/auxiliary/infrastructure/#viser.infra.Message.deserialize">deserialize() (viser.infra.Message class method)</a>
@@ -4535,10 +4557,10 @@
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.DEVICE_TABLET_DOLLAR">DEVICE_TABLET_DOLLAR (viser.Icon attribute)</a>
 </li>
-        <li><a href="../api/advanced/icons/#viser.Icon.DEVICE_TABLET_DOWN">DEVICE_TABLET_DOWN (viser.Icon attribute)</a>
-</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="../api/advanced/icons/#viser.Icon.DEVICE_TABLET_DOWN">DEVICE_TABLET_DOWN (viser.Icon attribute)</a>
+</li>
         <li><a href="../api/advanced/icons/#viser.Icon.DEVICE_TABLET_EXCLAMATION">DEVICE_TABLET_EXCLAMATION (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.DEVICE_TABLET_FILLED">DEVICE_TABLET_FILLED (viser.Icon attribute)</a>
@@ -5119,10 +5141,20 @@
         </ul></li>
         <li><a href="../api/advanced/uplot/#viser.uplot.Series.facets">facets (viser.uplot.Series attribute)</a>
 </li>
+        <li><a href="../api/handles/scene_handles/#viser.GridHandle.fade_distance">fade_distance (viser.GridHandle attribute)</a>
+</li>
+        <li><a href="../api/handles/scene_handles/#viser.GridHandle.fade_from">fade_from (viser.GridHandle attribute)</a>
+</li>
+        <li><a href="../api/handles/scene_handles/#viser.GridHandle.fade_strength">fade_strength (viser.GridHandle attribute)</a>
+</li>
         <li><a href="../api/advanced/icons/#viser.Icon.FALL">FALL (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/handles/camera_handles/#viser.CameraHandle.far">far (viser.CameraHandle property)</a>
+
+        <ul>
+          <li><a href="../api/handles/camera_handles/#viser.InitialCameraConfig.far">(viser.InitialCameraConfig property)</a>
 </li>
+        </ul></li>
         <li><a href="../api/advanced/icons/#viser.Icon.FEATHER">FEATHER (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.FEATHER_OFF">FEATHER_OFF (viser.Icon attribute)</a>
@@ -5491,6 +5523,12 @@
 </li>
         <li><a href="../api/advanced/uplot/#viser.uplot.Axis.font">font (viser.uplot.Axis attribute)</a>
 </li>
+        <li><a href="../api/handles/scene_handles/#viser.LabelHandle.font_scene_height">font_scene_height (viser.LabelHandle attribute)</a>
+</li>
+        <li><a href="../api/handles/scene_handles/#viser.LabelHandle.font_screen_scale">font_screen_scale (viser.LabelHandle attribute)</a>
+</li>
+        <li><a href="../api/handles/scene_handles/#viser.LabelHandle.font_size_mode">font_size_mode (viser.LabelHandle attribute)</a>
+</li>
         <li><a href="../api/advanced/icons/#viser.Icon.FORBID">FORBID (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.FORBID_2">FORBID_2 (viser.Icon attribute)</a>
@@ -5515,6 +5553,8 @@
 
         <ul>
           <li><a href="../api/handles/camera_handles/#viser.CameraHandle.fov">(viser.CameraHandle property)</a>
+</li>
+          <li><a href="../api/handles/camera_handles/#viser.InitialCameraConfig.fov">(viser.InitialCameraConfig property)</a>
 </li>
         </ul></li>
         <li><a href="../api/advanced/icons/#viser.Icon.FRAME">FRAME (viser.Icon attribute)</a>
@@ -5701,6 +5741,8 @@
 </li>
         <li><a href="../api/auxiliary/extras/#viser.extras.Record3dLoader.get_frame">get_frame() (viser.extras.Record3dLoader method)</a>
 </li>
+        <li><a href="../api/core/scene_api/#viser.SceneApi.get_handle_by_name">get_handle_by_name() (viser.SceneApi method)</a>
+</li>
         <li><a href="../api/core/server/#viser.ViserServer.get_host">get_host() (viser.ViserServer method)</a>
 </li>
         <li><a href="../api/auxiliary/infrastructure/#viser.infra.WebsockClientConnection.get_message_buffer">get_message_buffer() (viser.infra.WebsockClientConnection method)</a>
@@ -5755,10 +5797,10 @@
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.GIT_BRANCH_DELETED">GIT_BRANCH_DELETED (viser.Icon attribute)</a>
 </li>
-        <li><a href="../api/advanced/icons/#viser.Icon.GIT_CHERRY_PICK">GIT_CHERRY_PICK (viser.Icon attribute)</a>
-</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="../api/advanced/icons/#viser.Icon.GIT_CHERRY_PICK">GIT_CHERRY_PICK (viser.Icon attribute)</a>
+</li>
         <li><a href="../api/advanced/icons/#viser.Icon.GIT_COMMIT">GIT_COMMIT (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.GIT_COMPARE">GIT_COMPARE (viser.Icon attribute)</a>
@@ -6009,8 +6051,6 @@
           <li><a href="../api/advanced/uplot/#viser.uplot.Select.height">(viser.uplot.Select attribute)</a>
 </li>
         </ul></li>
-        <li><a href="../api/handles/scene_handles/#viser.GridHandle.height_segments">height_segments (viser.GridHandle attribute)</a>
-</li>
         <li><a href="../api/advanced/icons/#viser.Icon.HELICOPTER">HELICOPTER (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.HELICOPTER_LANDING">HELICOPTER_LANDING (viser.Icon attribute)</a>
@@ -6341,6 +6381,14 @@
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon">Icon (class in viser)</a>
 </li>
+        <li><a href="../api/handles/gui_handles/#viser.GuiButtonHandle.icon">icon (viser.GuiButtonHandle property)</a>
+
+        <ul>
+          <li><a href="../api/handles/gui_handles/#viser.GuiTabHandle.icon">(viser.GuiTabHandle property)</a>
+</li>
+          <li><a href="../api/handles/gui_handles/#viser.GuiUploadButtonHandle.icon">(viser.GuiUploadButtonHandle property)</a>
+</li>
+        </ul></li>
         <li><a href="../api/advanced/icons/#viser.Icon.ICON_123">ICON_123 (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.ICON_24_HOURS">ICON_24_HOURS (viser.Icon attribute)</a>
@@ -6429,6 +6477,8 @@
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.INDENT_INCREASE">INDENT_INCREASE (viser.Icon attribute)</a>
 </li>
+        <li><a href="../api/handles/scene_handles/#viser.GridHandle.infinite_grid">infinite_grid (viser.GridHandle attribute)</a>
+</li>
         <li><a href="../api/advanced/icons/#viser.Icon.INFINITY">INFINITY (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.INFINITY_OFF">INFINITY_OFF (viser.Icon attribute)</a>
@@ -6441,10 +6491,10 @@
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.INFO_HEXAGON_FILLED">INFO_HEXAGON_FILLED (viser.Icon attribute)</a>
 </li>
-        <li><a href="../api/advanced/icons/#viser.Icon.INFO_OCTAGON">INFO_OCTAGON (viser.Icon attribute)</a>
-</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="../api/advanced/icons/#viser.Icon.INFO_OCTAGON">INFO_OCTAGON (viser.Icon attribute)</a>
+</li>
         <li><a href="../api/advanced/icons/#viser.Icon.INFO_OCTAGON_FILLED">INFO_OCTAGON_FILLED (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.INFO_SMALL">INFO_SMALL (viser.Icon attribute)</a>
@@ -6460,6 +6510,10 @@
         <li><a href="../api/advanced/icons/#viser.Icon.INFO_TRIANGLE">INFO_TRIANGLE (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.INFO_TRIANGLE_FILLED">INFO_TRIANGLE_FILLED (viser.Icon attribute)</a>
+</li>
+        <li><a href="../api/core/server/#viser.ViserServer.initial_camera">initial_camera (viser.ViserServer property)</a>
+</li>
+        <li><a href="../api/handles/camera_handles/#viser.InitialCameraConfig">InitialCameraConfig (class in viser)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.INNER_SHADOW_BOTTOM">INNER_SHADOW_BOTTOM (viser.Icon attribute)</a>
 </li>
@@ -6849,10 +6903,10 @@
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.LETTER_N">LETTER_N (viser.Icon attribute)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="../api/advanced/icons/#viser.Icon.LETTER_O">LETTER_O (viser.Icon attribute)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="../api/advanced/icons/#viser.Icon.LETTER_P">LETTER_P (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.LETTER_Q">LETTER_Q (viser.Icon attribute)</a>
@@ -7064,7 +7118,11 @@
         <li><a href="../api/advanced/icons/#viser.Icon.LOLLIPOP_OFF">LOLLIPOP_OFF (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/handles/camera_handles/#viser.CameraHandle.look_at">look_at (viser.CameraHandle property)</a>
+
+        <ul>
+          <li><a href="../api/handles/camera_handles/#viser.InitialCameraConfig.look_at">(viser.InitialCameraConfig property)</a>
 </li>
+        </ul></li>
         <li><a href="../api/advanced/icons/#viser.Icon.LUGGAGE">LUGGAGE (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.LUGGAGE_OFF">LUGGAGE_OFF (viser.Icon attribute)</a>
@@ -7571,6 +7629,8 @@
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.MILKSHAKE">MILKSHAKE (viser.Icon attribute)</a>
 </li>
+        <li><a href="../api/handles/gui_handles/#viser.GuiUploadButtonHandle.mime_type">mime_type (viser.GuiUploadButtonHandle attribute)</a>
+</li>
         <li><a href="../api/handles/gui_handles/#viser.GuiMultiSliderHandle.min">min (viser.GuiMultiSliderHandle attribute)</a>
 
         <ul>
@@ -7887,7 +7947,11 @@
         <li><a href="../api/advanced/icons/#viser.Icon.NAVIGATION_OFF">NAVIGATION_OFF (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/handles/camera_handles/#viser.CameraHandle.near">near (viser.CameraHandle property)</a>
+
+        <ul>
+          <li><a href="../api/handles/camera_handles/#viser.InitialCameraConfig.near">(viser.InitialCameraConfig property)</a>
 </li>
+        </ul></li>
         <li><a href="../api/advanced/icons/#viser.Icon.NEEDLE">NEEDLE (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.NEEDLE_THREAD">NEEDLE_THREAD (viser.Icon attribute)</a>
@@ -7896,10 +7960,10 @@
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.NETWORK_OFF">NETWORK_OFF (viser.Icon attribute)</a>
 </li>
-        <li><a href="../api/advanced/icons/#viser.Icon.NEW_SECTION">NEW_SECTION (viser.Icon attribute)</a>
-</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="../api/advanced/icons/#viser.Icon.NEW_SECTION">NEW_SECTION (viser.Icon attribute)</a>
+</li>
         <li><a href="../api/advanced/icons/#viser.Icon.NEWS">NEWS (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.NEWS_OFF">NEWS_OFF (viser.Icon attribute)</a>
@@ -8054,6 +8118,8 @@
 </li>
         <li><a href="../api/handles/scene_handles/#viser.TransformControlsHandle.on_drag_start">on_drag_start() (viser.TransformControlsHandle method)</a>
 </li>
+        <li><a href="../api/handles/gui_handles/#viser.GuiButtonHandle.on_hold">on_hold() (viser.GuiButtonHandle method)</a>
+</li>
         <li><a href="../api/core/scene_api/#viser.SceneApi.on_pointer_callback_removed">on_pointer_callback_removed() (viser.SceneApi method)</a>
 </li>
         <li><a href="../api/core/scene_api/#viser.SceneApi.on_pointer_event">on_pointer_event() (viser.SceneApi method)</a>
@@ -8091,6 +8157,8 @@
         <li><a href="../api/handles/gui_handles/#viser.GuiUploadButtonHandle.on_upload">on_upload() (viser.GuiUploadButtonHandle method)</a>
 </li>
         <li><a href="../api/advanced/uplot/#viser.uplot.Cursor_Points.one">one (viser.uplot.Cursor_Points attribute)</a>
+</li>
+        <li><a href="../api/handles/scene_handles/#viser.GaussianSplatHandle.opacities">opacities (viser.GaussianSplatHandle property)</a>
 </li>
         <li><a href="../api/handles/scene_handles/#viser.BatchedMeshHandle.opacity">opacity (viser.BatchedMeshHandle attribute)</a>
 
@@ -8458,11 +8526,15 @@
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.PLANE_ARRIVAL">PLANE_ARRIVAL (viser.Icon attribute)</a>
 </li>
+        <li><a href="../api/handles/scene_handles/#viser.GridHandle.plane_color">plane_color (viser.GridHandle attribute)</a>
+</li>
         <li><a href="../api/advanced/icons/#viser.Icon.PLANE_DEPARTURE">PLANE_DEPARTURE (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.PLANE_INFLIGHT">PLANE_INFLIGHT (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.PLANE_OFF">PLANE_OFF (viser.Icon attribute)</a>
+</li>
+        <li><a href="../api/handles/scene_handles/#viser.GridHandle.plane_opacity">plane_opacity (viser.GridHandle attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.PLANE_TILT">PLANE_TILT (viser.Icon attribute)</a>
 </li>
@@ -8492,10 +8564,10 @@
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.PLAYER_EJECT">PLAYER_EJECT (viser.Icon attribute)</a>
 </li>
-        <li><a href="../api/advanced/icons/#viser.Icon.PLAYER_EJECT_FILLED">PLAYER_EJECT_FILLED (viser.Icon attribute)</a>
-</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="../api/advanced/icons/#viser.Icon.PLAYER_EJECT_FILLED">PLAYER_EJECT_FILLED (viser.Icon attribute)</a>
+</li>
         <li><a href="../api/advanced/icons/#viser.Icon.PLAYER_PAUSE">PLAYER_PAUSE (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.PLAYER_PAUSE_FILLED">PLAYER_PAUSE_FILLED (viser.Icon attribute)</a>
@@ -8688,6 +8760,8 @@
           <li><a href="../api/handles/scene_handles/#viser.IcosphereHandle.position">(viser.IcosphereHandle property)</a>
 </li>
           <li><a href="../api/handles/scene_handles/#viser.ImageHandle.position">(viser.ImageHandle property)</a>
+</li>
+          <li><a href="../api/handles/camera_handles/#viser.InitialCameraConfig.position">(viser.InitialCameraConfig property)</a>
 </li>
           <li><a href="../api/handles/scene_handles/#viser.LabelHandle.position">(viser.LabelHandle property)</a>
 </li>
@@ -9238,6 +9312,8 @@
 </li>
         <li><a href="../api/auxiliary/extras/#viser.extras.Record3dFrame.rgb">rgb (viser.extras.Record3dFrame attribute)</a>
 </li>
+        <li><a href="../api/handles/scene_handles/#viser.GaussianSplatHandle.rgbs">rgbs (viser.GaussianSplatHandle property)</a>
+</li>
         <li><a href="../api/advanced/icons/#viser.Icon.RIBBON_HEALTH">RIBBON_HEALTH (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.RINGS">RINGS (viser.Icon attribute)</a>
@@ -9402,17 +9478,47 @@
 </li>
         <li><a href="../api/advanced/uplot/#viser.uplot.Scale">Scale (class in viser.uplot)</a>
 </li>
-        <li><a href="../api/handles/scene_handles/#viser.CameraFrustumHandle.scale">scale (viser.CameraFrustumHandle attribute)</a>
+        <li><a href="../api/handles/scene_handles/#viser.BatchedAxesHandle.scale">scale (viser.BatchedAxesHandle attribute)</a>
 
         <ul>
+          <li><a href="../api/handles/scene_handles/#viser.BatchedGlbHandle.scale">(viser.BatchedGlbHandle attribute)</a>
+</li>
+          <li><a href="../api/handles/scene_handles/#viser.BatchedMeshHandle.scale">(viser.BatchedMeshHandle attribute)</a>
+</li>
+          <li><a href="../api/handles/scene_handles/#viser.BoxHandle.scale">(viser.BoxHandle attribute)</a>
+</li>
+          <li><a href="../api/handles/scene_handles/#viser.CameraFrustumHandle.scale">(viser.CameraFrustumHandle attribute)</a>
+</li>
+          <li><a href="../api/handles/scene_handles/#viser.FrameHandle.scale">(viser.FrameHandle attribute)</a>
+</li>
+          <li><a href="../api/handles/scene_handles/#viser.GaussianSplatHandle.scale">(viser.GaussianSplatHandle attribute)</a>
+</li>
           <li><a href="../api/handles/scene_handles/#viser.GlbHandle.scale">(viser.GlbHandle attribute)</a>
+</li>
+          <li><a href="../api/handles/scene_handles/#viser.GridHandle.scale">(viser.GridHandle attribute)</a>
 </li>
         </ul></li>
         <li><a href="../api/advanced/icons/#viser.Icon.SCALE">SCALE (viser.Icon attribute)</a>
 </li>
-        <li><a href="../api/handles/scene_handles/#viser.TransformControlsHandle.scale">scale (viser.TransformControlsHandle attribute)</a>
+        <li><a href="../api/handles/scene_handles/#viser.IcosphereHandle.scale">scale (viser.IcosphereHandle attribute)</a>
 
         <ul>
+          <li><a href="../api/handles/scene_handles/#viser.ImageHandle.scale">(viser.ImageHandle attribute)</a>
+</li>
+          <li><a href="../api/handles/scene_handles/#viser.LineSegmentsHandle.scale">(viser.LineSegmentsHandle attribute)</a>
+</li>
+          <li><a href="../api/handles/scene_handles/#viser.MeshHandle.scale">(viser.MeshHandle attribute)</a>
+</li>
+          <li><a href="../api/handles/scene_handles/#viser.MeshSkinnedHandle.scale">(viser.MeshSkinnedHandle attribute)</a>
+</li>
+          <li><a href="../api/handles/scene_handles/#viser.PointCloudHandle.scale">(viser.PointCloudHandle attribute)</a>
+</li>
+          <li><a href="../api/handles/scene_handles/#viser.SplineCatmullRomHandle.scale">(viser.SplineCatmullRomHandle attribute)</a>
+</li>
+          <li><a href="../api/handles/scene_handles/#viser.SplineCubicBezierHandle.scale">(viser.SplineCubicBezierHandle attribute)</a>
+</li>
+          <li><a href="../api/handles/scene_handles/#viser.TransformControlsHandle.scale">(viser.TransformControlsHandle attribute)</a>
+</li>
           <li><a href="../api/advanced/uplot/#viser.uplot.Axis.scale">(viser.uplot.Axis attribute)</a>
 </li>
           <li><a href="../api/advanced/uplot/#viser.uplot.Series.scale">(viser.uplot.Series attribute)</a>
@@ -9782,6 +9888,12 @@
           <li><a href="../api/advanced/uplot/#viser.uplot.Series_Points.show">(viser.uplot.Series_Points attribute)</a>
 </li>
         </ul></li>
+        <li><a href="../api/auxiliary/infrastructure/#viser.infra.StateSerializer.show">show() (viser.infra.StateSerializer method)</a>
+
+        <ul>
+          <li><a href="../api/core/scene_api/#viser.SceneApi.show">(viser.SceneApi method)</a>
+</li>
+        </ul></li>
         <li><a href="../api/handles/scene_handles/#viser.FrameHandle.show_axes">show_axes (viser.FrameHandle attribute)</a>
 </li>
         <li><a href="../api/auxiliary/extras/#viser.extras.ViserUrdf.show_collision">show_collision (viser.extras.ViserUrdf property)</a>
@@ -9946,6 +10058,8 @@
           <li><a href="../api/advanced/uplot/#viser.uplot.Series_Facet.sorted">(viser.uplot.Series_Facet attribute)</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="../api/advanced/icons/#viser.Icon.SOS">SOS (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.SOUP">SOUP (viser.Icon attribute)</a>
@@ -9978,8 +10092,6 @@
           <li><a href="../api/auxiliary/transforms/#viser.transforms.SOBase.space_dim">(viser.transforms.SOBase attribute)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="../api/advanced/icons/#viser.Icon.SPACE_OFF">SPACE_OFF (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.SPACING_HORIZONTAL">SPACING_HORIZONTAL (viser.Icon attribute)</a>
@@ -11014,6 +11126,8 @@
           <li><a href="../api/auxiliary/infrastructure/#viser.infra.WebsockServer.unregister_handler">(viser.infra.WebsockServer method)</a>
 </li>
         </ul></li>
+        <li><a href="../api/handles/camera_handles/#viser.InitialCameraConfig.up">up (viser.InitialCameraConfig property)</a>
+</li>
         <li><a href="../api/handles/camera_handles/#viser.CameraHandle.up_direction">up_direction (viser.CameraHandle property)</a>
 </li>
         <li><a href="../api/auxiliary/extras/#viser.extras.ViserUrdf.update_cfg">update_cfg() (viser.extras.ViserUrdf method)</a>
@@ -11526,8 +11640,6 @@
           <li><a href="../api/advanced/uplot/#viser.uplot.Series_Points.width">(viser.uplot.Series_Points attribute)</a>
 </li>
         </ul></li>
-        <li><a href="../api/handles/scene_handles/#viser.GridHandle.width_segments">width_segments (viser.GridHandle attribute)</a>
-</li>
         <li><a href="../api/advanced/icons/#viser.Icon.WIFI">WIFI (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.WIFI_0">WIFI_0 (viser.Icon attribute)</a>
@@ -11552,10 +11664,10 @@
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.WINDOW_MAXIMIZE">WINDOW_MAXIMIZE (viser.Icon attribute)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="../api/advanced/icons/#viser.Icon.WINDOW_MINIMIZE">WINDOW_MINIMIZE (viser.Icon attribute)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="../api/advanced/icons/#viser.Icon.WINDOW_OFF">WINDOW_OFF (viser.Icon attribute)</a>
 </li>
         <li><a href="../api/advanced/icons/#viser.Icon.WINDSOCK">WINDSOCK (viser.Icon attribute)</a>
@@ -11865,7 +11977,7 @@
           </div>
           <div class="right-details">
             <div class="icons">
-              <a class="muted-link " href="https://github.com/nerfstudio-project/viser" aria-label="GitHub">
+              <a class="muted-link " href="https://github.com/viser-project/viser" aria-label="GitHub">
             <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 16 16">
                 <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path>
             </svg>

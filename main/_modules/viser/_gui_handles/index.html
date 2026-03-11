@@ -18,6 +18,7 @@
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css?v=5976cbfc" />
     <link rel="stylesheet" type="text/css" href="../../../_static/ansi.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo-extensions.css?v=302659d7" />
@@ -229,7 +230,7 @@
 
     async function getViserVersionList() {
       // This index.txt file is written by the docs.yml GitHub action.
-      // https://github.com/nerfstudio-project/viser/blob/main/.github/workflows/docs.yml
+      // https://github.com/viser-project/viser/blob/main/.github/workflows/docs.yml
       const response = await fetch("https://viser.studio/versions/index.txt", {
         cache: "no-cache",
       });
@@ -279,7 +280,7 @@
   <script async defer src="https://buttons.github.io/buttons.js"></script>
   <a
     class="github-button"
-    href="https://github.com/nerfstudio-project/viser"
+    href="https://github.com/viser-project/viser"
     data-color-scheme="no-preference: light; light: light; dark: light;"
     data-size="large"
     data-show-count="true"
@@ -311,6 +312,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../examples/scene/background_composite/">Depth compositing</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../examples/scene/set_up_direction/">Set up direction</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../examples/scene/gaussian_splats/">Gaussian splats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/scene/fog/">Distance fog</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../examples/gui/">GUI Controls</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of GUI Controls</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
@@ -377,9 +379,11 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Notes</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../interactive_notebooks/">Interactive Notebooks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../conventions/">Frame Conventions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance_tips/">Performance Tips</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../development/">Development</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../embedded_visualizations/">Embedding Visualizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../embedded_visualizations/">Embedded Visualizations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../citation/">Citation</a></li>
 </ul>
 
@@ -435,6 +439,7 @@
     <span class="n">Literal</span><span class="p">,</span>
     <span class="n">Tuple</span><span class="p">,</span>
     <span class="n">TypeVar</span><span class="p">,</span>
+    <span class="n">overload</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">imageio.v3</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">iio</span>
@@ -466,6 +471,7 @@
     <span class="n">GuiTabGroupProps</span><span class="p">,</span>
     <span class="n">GuiTextProps</span><span class="p">,</span>
     <span class="n">GuiUpdateMessage</span><span class="p">,</span>
+    <span class="n">GuiUploadButtonProps</span><span class="p">,</span>
     <span class="n">GuiUplotProps</span><span class="p">,</span>
     <span class="n">GuiVector2Props</span><span class="p">,</span>
     <span class="n">GuiVector3Props</span><span class="p">,</span>
@@ -528,6 +534,16 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Callback for synchronizing inputs across clients.&quot;&quot;&quot;</span>
 
     <span class="n">removed</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_GuiButtonHandleState</span><span class="p">(</span><span class="n">_GuiHandleState</span><span class="p">[</span><span class="nb">bool</span><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Internal API for button GUI elements with hold callback support.&quot;&quot;&quot;</span>
+
+    <span class="n">hold_cbs_from_freq</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">GuiEvent</span><span class="p">],</span> <span class="kc">None</span> <span class="o">|</span> <span class="n">Coroutine</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">dataclasses</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="p">)</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mapping from frequency (Hz) to list of callbacks to call when button is held.&quot;&quot;&quot;</span>
 
 
 <span class="c1"># Not exported for now because some GUI handles don&#39;t currently inhert from</span>
@@ -829,6 +845,26 @@
 <span class="sd">       Value of the button. Set to `True` when the button is pressed. Can be manually set back to `False`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_impl</span><span class="p">:</span> <span class="n">_GuiButtonHandleState</span><span class="p">,</span> <span class="n">_icon</span><span class="p">:</span> <span class="n">IconName</span> <span class="o">|</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">impl</span><span class="o">=</span><span class="n">_impl</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_icon</span> <span class="o">=</span> <span class="n">_icon</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_button_impl</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_GuiButtonHandleState</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Access the button-specific implementation state.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_impl</span><span class="p">,</span> <span class="n">_GuiButtonHandleState</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_impl</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">icon</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IconName</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Icon to display on the button. When set to None, no icon is displayed.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_icon</span>
+
+    <span class="nd">@icon</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">icon</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">icon</span><span class="p">:</span> <span class="n">IconName</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_icon</span> <span class="o">=</span> <span class="n">icon</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_icon_html</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">icon</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">svg_from_icon</span><span class="p">(</span><span class="n">icon</span><span class="p">)</span>
+
 <div class="viewcode-block" id="GuiButtonHandle.on_click">
 <a class="viewcode-back" href="../../../api/handles/gui_handles/#viser.GuiButtonHandle.on_click">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">on_click</span><span class="p">(</span>
@@ -844,6 +880,77 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_impl</span><span class="o">.</span><span class="n">update_cb</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">func</span></div>
+
+
+    <span class="c1"># Type alias for button hold callbacks.</span>
+    <span class="n">_HoldCallback</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="s2">&quot;GuiEvent[GuiButtonHandle]&quot;</span><span class="p">],</span> <span class="s2">&quot;None | Coroutine&quot;</span><span class="p">]</span>
+
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_hold</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">func</span><span class="p">:</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">callback_hz</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_HoldCallback</span><span class="p">],</span> <span class="n">_HoldCallback</span><span class="p">]:</span> <span class="o">...</span>
+
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_hold</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">func</span><span class="p">:</span> <span class="n">_HoldCallback</span><span class="p">,</span>
+        <span class="n">callback_hz</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_HoldCallback</span><span class="p">:</span> <span class="o">...</span>
+
+<div class="viewcode-block" id="GuiButtonHandle.on_hold">
+<a class="viewcode-back" href="../../../api/handles/gui_handles/#viser.GuiButtonHandle.on_hold">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_hold</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">func</span><span class="p">:</span> <span class="n">_HoldCallback</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">callback_hz</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_HoldCallback</span><span class="p">],</span> <span class="n">_HoldCallback</span><span class="p">]</span> <span class="o">|</span> <span class="n">_HoldCallback</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Attach a function to call repeatedly while a button is held down.</span>
+
+<span class="sd">        The callback will be triggered immediately when the button is pressed,</span>
+<span class="sd">        and then repeatedly at the specified frequency until released.</span>
+
+<span class="sd">        Can be used as a decorator with or without arguments:</span>
+<span class="sd">            @button.on_hold</span>
+<span class="sd">            def callback(event): ...</span>
+
+<span class="sd">            @button.on_hold(callback_hz=30.0)</span>
+<span class="sd">            def callback(event): ...</span>
+
+<span class="sd">        Or called directly:</span>
+<span class="sd">            button.on_hold(callback)</span>
+<span class="sd">            button.on_hold(callback, callback_hz=30.0)</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            func: The callback function to attach. If None, returns a decorator.</span>
+<span class="sd">            callback_hz: The frequency in Hz at which to call the callback while</span>
+<span class="sd">                the button is held. Defaults to 10.0 Hz.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">        - If `func` is a regular function (defined with `def`), it will be executed in a thread pool.</span>
+<span class="sd">        - If `func` is an async function (defined with `async def`), it will be executed in the event loop.</span>
+
+<span class="sd">        Using async functions can be useful for reducing race conditions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">button_impl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_button_impl</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">register_callback</span><span class="p">(</span>
+            <span class="n">f</span><span class="p">:</span> <span class="n">GuiButtonHandle</span><span class="o">.</span><span class="n">_HoldCallback</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GuiButtonHandle</span><span class="o">.</span><span class="n">_HoldCallback</span><span class="p">:</span>
+            <span class="c1"># Add callback to the frequency-specific list.</span>
+            <span class="k">if</span> <span class="n">callback_hz</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">button_impl</span><span class="o">.</span><span class="n">hold_cbs_from_freq</span><span class="p">:</span>
+                <span class="n">button_impl</span><span class="o">.</span><span class="n">hold_cbs_from_freq</span><span class="p">[</span><span class="n">callback_hz</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">button_impl</span><span class="o">.</span><span class="n">hold_cbs_from_freq</span><span class="p">[</span><span class="n">callback_hz</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+            <span class="c1"># Update the prop to notify client of new frequency.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_hold_callback_freqs</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">button_impl</span><span class="o">.</span><span class="n">hold_cbs_from_freq</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+            <span class="k">return</span> <span class="n">f</span>
+
+        <span class="k">if</span> <span class="n">func</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">register_callback</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">register_callback</span></div>
 </div>
 
 
@@ -863,7 +970,7 @@
 
 <div class="viewcode-block" id="GuiUploadButtonHandle">
 <a class="viewcode-back" href="../../../api/handles/gui_handles/#viser.GuiUploadButtonHandle">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">GuiUploadButtonHandle</span><span class="p">(</span><span class="n">_GuiInputHandle</span><span class="p">[</span><span class="n">UploadedFile</span><span class="p">]):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">GuiUploadButtonHandle</span><span class="p">(</span><span class="n">_GuiInputHandle</span><span class="p">[</span><span class="n">UploadedFile</span><span class="p">],</span> <span class="n">GuiUploadButtonProps</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Handle for an upload file button in our visualizer.</span>
 
 <span class="sd">    The `.value` attribute will be updated with the contents of uploaded files.</span>
@@ -873,6 +980,20 @@
 
 <span class="sd">       Value of the input. Contains information about the uploaded file.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_impl</span><span class="p">:</span> <span class="n">_GuiHandleState</span><span class="p">[</span><span class="n">UploadedFile</span><span class="p">],</span> <span class="n">_icon</span><span class="p">:</span> <span class="n">IconName</span> <span class="o">|</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">impl</span><span class="o">=</span><span class="n">_impl</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_icon</span> <span class="o">=</span> <span class="n">_icon</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">icon</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IconName</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Icon to display on the upload button. When set to None, no icon is displayed.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_icon</span>
+
+    <span class="nd">@icon</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">icon</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">icon</span><span class="p">:</span> <span class="n">IconName</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_icon</span> <span class="o">=</span> <span class="n">icon</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_icon_html</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">icon</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">svg_from_icon</span><span class="p">(</span><span class="n">icon</span><span class="p">)</span>
 
 <div class="viewcode-block" id="GuiUploadButtonHandle.on_upload">
 <a class="viewcode-back" href="../../../api/handles/gui_handles/#viser.GuiUploadButtonHandle.on_upload">[docs]</a>
@@ -992,7 +1113,7 @@
         <span class="n">uuid</span> <span class="o">=</span> <span class="n">_make_uuid</span><span class="p">()</span>
 
         <span class="c1"># We may want to make this thread-safe in the future.</span>
-        <span class="n">out</span> <span class="o">=</span> <span class="n">GuiTabHandle</span><span class="p">(</span><span class="n">_parent</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">_id</span><span class="o">=</span><span class="n">uuid</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">GuiTabHandle</span><span class="p">(</span><span class="n">_parent</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">_id</span><span class="o">=</span><span class="n">uuid</span><span class="p">,</span> <span class="n">_label</span><span class="o">=</span><span class="n">label</span><span class="p">,</span> <span class="n">_icon</span><span class="o">=</span><span class="n">icon</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_tab_handles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_tab_labels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tab_labels</span> <span class="o">+</span> <span class="p">(</span><span class="n">label</span><span class="p">,)</span>
@@ -1028,8 +1149,10 @@
         <span class="n">gui_api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_impl</span><span class="o">.</span><span class="n">gui_api</span>
         <span class="n">gui_api</span><span class="o">.</span><span class="n">_websock_interface</span><span class="o">.</span><span class="n">get_message_buffer</span><span class="p">()</span><span class="o">.</span><span class="n">remove_from_buffer</span><span class="p">(</span>
             <span class="c1"># Don&#39;t send outdated GUI updates to new clients.</span>
-            <span class="k">lambda</span> <span class="n">message</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">GuiUpdateMessage</span><span class="p">)</span>
-            <span class="ow">and</span> <span class="n">message</span><span class="o">.</span><span class="n">uuid</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_impl</span><span class="o">.</span><span class="n">uuid</span>
+            <span class="k">lambda</span> <span class="n">message</span><span class="p">:</span> <span class="p">(</span>
+                <span class="nb">isinstance</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">GuiUpdateMessage</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="n">message</span><span class="o">.</span><span class="n">uuid</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_impl</span><span class="o">.</span><span class="n">uuid</span>
+            <span class="p">)</span>
         <span class="p">)</span>
         <span class="n">gui_api</span><span class="o">.</span><span class="n">_websock_interface</span><span class="o">.</span><span class="n">queue_message</span><span class="p">(</span><span class="n">GuiRemoveMessage</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_impl</span><span class="o">.</span><span class="n">uuid</span><span class="p">))</span>
         <span class="n">parent</span> <span class="o">=</span> <span class="n">gui_api</span><span class="o">.</span><span class="n">_container_handle_from_uuid</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_impl</span><span class="o">.</span><span class="n">parent_container_id</span><span class="p">]</span>
@@ -1046,11 +1169,28 @@
 
     <span class="n">_parent</span><span class="p">:</span> <span class="n">GuiTabGroupHandle</span>
     <span class="n">_id</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># Used as container ID of children.</span>
+    <span class="n">_label</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">_icon</span><span class="p">:</span> <span class="n">IconName</span> <span class="o">|</span> <span class="kc">None</span>
     <span class="n">_container_id_restore</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">_children</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">SupportsRemoveProtocol</span><span class="p">]</span> <span class="o">=</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">field</span><span class="p">(</span>
         <span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span>
     <span class="p">)</span>
     <span class="n">_removed</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">icon</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IconName</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Icon to display on the tab. When set to None, no icon is displayed.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_icon</span>
+
+    <span class="nd">@icon</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">icon</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">icon</span><span class="p">:</span> <span class="n">IconName</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_icon</span> <span class="o">=</span> <span class="n">icon</span>
+        <span class="c1"># Find the index of this tab in the parent&#39;s tab list.</span>
+        <span class="n">tab_index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent</span><span class="o">.</span><span class="n">_tab_handles</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="c1"># Update the icon HTML in the parent&#39;s tuple.</span>
+        <span class="n">icons_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_parent</span><span class="o">.</span><span class="n">_tab_icons_html</span><span class="p">)</span>
+        <span class="n">icons_list</span><span class="p">[</span><span class="n">tab_index</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">icon</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">svg_from_icon</span><span class="p">(</span><span class="n">icon</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parent</span><span class="o">.</span><span class="n">_tab_icons_html</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">icons_list</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GuiTabHandle</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_container_id_restore</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent</span><span class="o">.</span><span class="n">_impl</span><span class="o">.</span><span class="n">gui_api</span><span class="o">.</span><span class="n">_get_container_uuid</span><span class="p">()</span>
@@ -1151,8 +1291,10 @@
         <span class="n">gui_api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_impl</span><span class="o">.</span><span class="n">gui_api</span>
         <span class="n">gui_api</span><span class="o">.</span><span class="n">_websock_interface</span><span class="o">.</span><span class="n">get_message_buffer</span><span class="p">()</span><span class="o">.</span><span class="n">remove_from_buffer</span><span class="p">(</span>
             <span class="c1"># Don&#39;t send outdated GUI updates to new clients.</span>
-            <span class="k">lambda</span> <span class="n">message</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">GuiUpdateMessage</span><span class="p">)</span>
-            <span class="ow">and</span> <span class="n">message</span><span class="o">.</span><span class="n">uuid</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_impl</span><span class="o">.</span><span class="n">uuid</span>
+            <span class="k">lambda</span> <span class="n">message</span><span class="p">:</span> <span class="p">(</span>
+                <span class="nb">isinstance</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">GuiUpdateMessage</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="n">message</span><span class="o">.</span><span class="n">uuid</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_impl</span><span class="o">.</span><span class="n">uuid</span>
+            <span class="p">)</span>
         <span class="p">)</span>
         <span class="n">gui_api</span><span class="o">.</span><span class="n">_websock_interface</span><span class="o">.</span><span class="n">queue_message</span><span class="p">(</span><span class="n">GuiRemoveMessage</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_impl</span><span class="o">.</span><span class="n">uuid</span><span class="p">))</span>
         <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_children</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
@@ -1384,7 +1526,7 @@
           </div>
           <div class="right-details">
             <div class="icons">
-              <a class="muted-link " href="https://github.com/nerfstudio-project/viser" aria-label="GitHub">
+              <a class="muted-link " href="https://github.com/viser-project/viser" aria-label="GitHub">
             <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 16 16">
                 <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path>
             </svg>
