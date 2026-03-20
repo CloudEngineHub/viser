@@ -130,7 +130,7 @@ def main(
         event.client.add_notification(
             f"Clicked on vertex {event.instance_index}",
             body="",
-            auto_close=3000,
+            auto_close_seconds=3.0,
         )
 
     while True:
