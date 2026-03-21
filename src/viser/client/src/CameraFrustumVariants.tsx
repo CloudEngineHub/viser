@@ -5,6 +5,7 @@ import { HoverableContext } from "./HoverContext";
 import * as THREE from "three";
 import { CameraFrustumMessage } from "./WebsocketMessages";
 import { rgbToInt } from "./mesh/MeshUtils";
+import { useAsyncTexture } from "./utils/useAsyncTexture";
 import { normalizeScale } from "./utils/normalizeScale";
 
 // Static index buffer shared across all filled frustum geometries.
@@ -20,32 +21,10 @@ export const CameraFrustumComponent = React.forwardRef<
   THREE.Group,
   CameraFrustumMessage & { children?: React.ReactNode }
 >(function CameraFrustumComponent({ children, ...message }, ref) {
-  // We can't use useMemo here because TextureLoader.load is asynchronous.
-  // And we need to use setState to update the texture after loading.
-  const [imageTexture, setImageTexture] = React.useState<THREE.Texture>();
-
-  React.useEffect(() => {
-    if (message.props._format !== null && message.props._image_data !== null) {
-      const image_url = URL.createObjectURL(
-        new Blob([message.props._image_data], {
-          type: "image/" + message.props._format,
-        }),
-      );
-      new THREE.TextureLoader().load(image_url, (texture) => {
-        setImageTexture(texture);
-        URL.revokeObjectURL(image_url);
-      });
-    } else {
-      setImageTexture(undefined);
-    }
-  }, [message.props._format, message.props._image_data]);
-
-  // Clean up texture when it changes or component unmounts.
-  React.useEffect(() => {
-    return () => {
-      if (imageTexture) imageTexture.dispose();
-    };
-  }, [imageTexture]);
+  const imageTexture = useAsyncTexture(
+    message.props._format,
+    message.props._image_data,
+  );
 
   let y = Math.tan(message.props.fov / 2.0);
   let x = y * message.props.aspect;
