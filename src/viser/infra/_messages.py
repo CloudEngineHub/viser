@@ -7,7 +7,7 @@ import abc
 import dataclasses
 import functools
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, TypeVar, Union, cast
 
 import msgspec.msgpack
 import numpy as np
@@ -26,6 +26,23 @@ def _prepare_for_deserialization(value: Any, annotation: Type) -> Any:
         return float(value)
     elif annotation is int:
         return int(value)
+    elif get_origin(annotation) is Union:
+        # Handle Optional[T] and Union[T1, T2, ...] by finding the best
+        # matching inner type. This avoids needing a blanket lists_to_tuple()
+        # pass over the entire deserialized message.
+        if value is None:
+            return None
+        args = get_args(annotation)
+        for arg in args:
+            if arg is type(None):
+                continue
+            if get_origin(arg) is tuple and isinstance(value, (list, tuple)):
+                return _prepare_for_deserialization(value, arg)
+            if arg is float and isinstance(value, (int, float)):
+                return float(value)
+            if arg is int and isinstance(value, int):
+                return int(value)
+        return value
     elif get_origin(annotation) is tuple:
         out = []
         args = get_args(annotation)
@@ -143,9 +160,12 @@ class Message(abc.ABC):
         Otherwise, arrays are inlined as memoryviews (used by API v0)."""
         message_type = type(self)
         hints = get_type_hints_cached(message_type)
+        # Filter to type-hinted fields only — excludes dynamic attributes
+        # like cached values that shouldn't be serialized.
         out = {
             k: _prepare_for_serialization(v, hints[k], binary_buffers)
             for k, v in vars(self).items()
+            if k in hints
         }
         out["type"] = message_type.__name__
         return out
@@ -166,17 +186,10 @@ class Message(abc.ABC):
         """Convert bytes into a Python Message object."""
         mapping = msgspec.msgpack.decode(message)
 
-        # msgpack deserializes to lists by default, but all of our annotations use
-        # tuples.
-        def lists_to_tuple(obj: Any) -> Any:
-            if isinstance(obj, list):
-                return tuple(lists_to_tuple(x) for x in obj)
-            elif isinstance(obj, dict):
-                return {k: lists_to_tuple(v) for k, v in obj.items()}
-            else:
-                return obj
-
-        mapping = lists_to_tuple(mapping)
+        # List-to-tuple conversion is handled per-field in
+        # _prepare_for_deserialization (called from _from_serializable_dict),
+        # which uses type annotations to convert only where needed. This avoids
+        # a blanket recursive traversal of the entire message tree.
         message_type = cls._subclass_from_type_string()[cast(str, mapping.pop("type"))]
         message_kwargs = message_type._from_serializable_dict(mapping)
         return message_type(**message_kwargs)

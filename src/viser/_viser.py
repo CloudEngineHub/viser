@@ -1009,6 +1009,9 @@ class ViserServer(DeprecatedAttributeShim if not TYPE_CHECKING else object):
         This is an experimental feature that relies on an external server; it shouldn't
         be relied on for critical applications.
 
+        Args:
+            verbose: Whether to print status messages.
+
         Returns:
             Share URL as string, or None if connection fails or is closed.
         """

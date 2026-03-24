@@ -67,7 +67,7 @@ function EditNodeProps({
   const props = nodeMessage.props;
   const initialValues = Object.fromEntries(
     Object.entries(props)
-      .filter(([, value]) => !(value instanceof Uint8Array))
+      .filter(([, value]) => !ArrayBuffer.isView(value))
       .map(([key, value]) => [key, stringify(value)]),
   );
 
@@ -161,12 +161,38 @@ function EditNodeProps({
           style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
         >
           {Object.entries(props).map(([key, value]) => {
-            if (value instanceof Uint8Array) {
-              return null;
-            }
             // Skip properties that start with "_".
             if (key.startsWith("_")) {
               return null;
+            }
+
+            const label =
+              key.charAt(0).toUpperCase() +
+              key.slice(1).split("_").join(" ");
+
+            // Show typed arrays as read-only type + length.
+            if (ArrayBuffer.isView(value)) {
+              return (
+                <Flex key={key} align="center">
+                  <Box style={{ flexGrow: "1" }} fz="xs">
+                    {label}
+                  </Box>
+                  <Flex gap="xs" style={{ width: "9em", flexShrink: 0 }}>
+                    <TextInput
+                      size="xs"
+                      disabled
+                      styles={{
+                        input: {
+                          height: "1.625rem",
+                          minHeight: "1.625rem",
+                          width: "100%",
+                        },
+                      }}
+                      value={`${value.constructor.name}[${(value as ArrayBufferView & { length: number }).length}]`}
+                    />
+                  </Flex>
+                </Flex>
+              );
             }
 
             const isDirty = form.values[key] !== initialValues[key];
@@ -174,10 +200,9 @@ function EditNodeProps({
             return (
               <Flex key={key} align="center">
                 <Box style={{ flexGrow: "1" }} fz="xs">
-                  {key.charAt(0).toUpperCase() +
-                    key.slice(1).split("_").join(" ")}
+                  {label}
                 </Box>
-                <Flex gap="xs" style={{ width: "9em" }}>
+                <Flex gap="xs" style={{ width: "9em", flexShrink: 0 }}>
                   {(() => {
                     // Check if this is a color property
                     try {
