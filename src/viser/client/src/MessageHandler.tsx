@@ -261,15 +261,11 @@ function useMessageHandler() {
         break;
       }
       case "SetCameraLookAtMessage": {
-        // Setting initial camera parameters.
-        const wasDefault = initialCamera.getState().lookAt.source === "default";
         if (message.initial) {
-          // URL params take priority, ignore server's initial value.
+          // Update store only; camera will be positioned by
+          // resetCameraPose after the batch is processed.
           initialCamera.getState().setLookAt(message.look_at, "message");
-
-          // If this is the first initial camera: we'll also move the actual
-          // camera. If not, we return immediately.
-          if (!wasDefault) return;
+          return;
         }
 
         const cameraControls = viewerMutable.cameraControl!;
@@ -285,15 +281,11 @@ function useMessageHandler() {
         return;
       }
       case "SetCameraUpDirectionMessage": {
-        // Setting initial camera parameters.
-        const wasDefault = initialCamera.getState().up.source === "default";
         if (message.initial) {
-          // URL params take priority, ignore server's initial value.
+          // Update store only; camera will be positioned by
+          // resetCameraPose after the batch is processed.
           initialCamera.getState().setUp(message.position, "message");
-
-          // If this is the first initial camera: we'll also move the actual
-          // camera. If not, we return immediately.
-          if (!wasDefault) return;
+          return;
         }
 
         const camera = viewerMutable.camera!;
@@ -326,16 +318,11 @@ function useMessageHandler() {
         return;
       }
       case "SetCameraPositionMessage": {
-        // Setting initial camera parameters.
-        const wasDefault =
-          initialCamera.getState().position.source === "default";
         if (message.initial) {
-          // URL params take priority, ignore server's initial value.
+          // Update store only; camera will be positioned by
+          // resetCameraPose after the batch is processed.
           initialCamera.getState().setPosition(message.position, "message");
-
-          // If this is the first initial camera: we'll also move the actual
-          // camera. If not, we return immediately.
-          if (!wasDefault) return;
+          return;
         }
 
         const cameraControls = viewerMutable.cameraControl!;
