@@ -16,7 +16,7 @@ export const BatchedMesh = React.forwardRef<
 >(function BatchedMesh({ children, ...message }, ref) {
   const viewer = React.useContext(ViewerContext)!;
   const clickable =
-    viewer.useSceneTree((state) => state[message.name]?.clickable) ?? false;
+    viewer.useSceneTree(message.name, (node) => node?.clickable) ?? false;
 
   // Create a material based on the message props.
   const material = useMemo(() => {
@@ -63,9 +63,7 @@ export const BatchedMesh = React.forwardRef<
       "position",
       new THREE.BufferAttribute(message.props.vertices, 3),
     );
-    geometry.setIndex(
-      new THREE.BufferAttribute(message.props.faces, 1),
-    );
+    geometry.setIndex(new THREE.BufferAttribute(message.props.faces, 1));
     geometry.computeVertexNormals();
     geometry.computeBoundingSphere();
     return geometry;

@@ -34,7 +34,7 @@ export default function GeneratedGuiContainer({
   containerUuid: string;
 }) {
   const viewer = React.useContext(ViewerContext)!;
-  const updateGuiProps = viewer.useGui((state) => state.updateGuiProps);
+  const updateGuiProps = viewer.guiActions.updateGuiProps;
   const messageSender = useThrottledMessageSender(50).send;
 
   function setValue(uuid: string, value: NonNullable<unknown>) {
@@ -100,7 +100,7 @@ function GeneratedInput(props: {
   nextGuiUuid: string | null;
 }) {
   const viewer = React.useContext(ViewerContext)!;
-  const conf = viewer.useGui((state) => state.guiConfigFromUuid[props.guiUuid]);
+  const conf = viewer.useGuiConfig(props.guiUuid);
   if (conf === undefined) {
     console.error("Tried to render non-existent component", props.guiUuid);
     return null;

@@ -6,11 +6,23 @@ import "./index.css";
 import { CameraControls } from "@react-three/drei";
 import * as THREE from "three";
 import React from "react";
-import { UseSceneTree } from "./SceneTree";
+import { useSceneTreeState } from "./SceneTreeState";
 
 import { UseGui } from "./ControlPanel/GuiState";
-import { UseInitialCamera } from "./InitialCameraState";
+import { useInitialCameraState } from "./InitialCameraState";
+import { useEnvironmentState } from "./EnvironmentState";
+import { useDevSettingsStore } from "./DevSettingsStore";
 import { GetRenderRequestMessage, Message } from "./WebsocketMessages";
+
+export type NodePoseEntry = {
+  wxyz: [number, number, number, number];
+  position: [number, number, number];
+  poseUpdateState: "updated" | "needsUpdate" | "waitForMakeObject";
+};
+
+export type NodePoseDataMap = {
+  [name: string]: NodePoseEntry | undefined;
+};
 
 // Type definitions for all mutable state.
 export type ViewerMutable = {
@@ -57,6 +69,10 @@ export type ViewerMutable = {
     };
   };
 
+  // Per-node pose data. Stored outside the reactive store to avoid
+  // triggering React re-renders on every pose update.
+  nodePoseData: NodePoseDataMap;
+
   // Global hover state tracking.
   hoveredElementsCount: number;
 };
@@ -65,17 +81,16 @@ export type ViewerContextContents = {
   // Non-mutable state.
   messageSource: "websocket" | "file_playback" | "embed";
 
-  // Zustand state hooks and actions.
-  useSceneTree: UseSceneTree["store"];
-  sceneTreeActions: UseSceneTree["actions"];
-  useEnvironment: ReturnType<
-    typeof import("./EnvironmentState").useEnvironmentState
-  >;
-  useGui: UseGui;
-  useDevSettings: ReturnType<
-    typeof import("./DevSettingsStore").useDevSettingsStore
-  >;
-  useInitialCamera: UseInitialCamera;
+  // Store hooks and actions.
+  useSceneTree: ReturnType<typeof useSceneTreeState>["store"];
+  sceneTreeActions: ReturnType<typeof useSceneTreeState>["actions"];
+  useEnvironment: ReturnType<typeof useEnvironmentState>;
+  useGui: UseGui["store"];
+  useGuiConfig: UseGui["configStore"];
+  guiActions: UseGui["actions"];
+  useDevSettings: ReturnType<typeof useDevSettingsStore>;
+  useInitialCamera: ReturnType<typeof useInitialCameraState>["store"];
+  initialCameraActions: ReturnType<typeof useInitialCameraState>["actions"];
 
   // Single reference to all mutable state.
   mutable: React.MutableRefObject<ViewerMutable>;

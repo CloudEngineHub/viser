@@ -55,7 +55,10 @@ function decodeHybridPayload<T>(decompressed: Uint8Array): T {
   // Replace binary placeholders with typed array views.
   const bufferLengths = data.binaryBufferLengths;
   if (bufferLengths && bufferLengths.length > 0) {
-    const binaryOffsets = computeBinaryOffsets(bufferLengths, base + 8 + msgpackLength);
+    const binaryOffsets = computeBinaryOffsets(
+      bufferLengths,
+      base + 8 + msgpackLength,
+    );
     replaceBinaryPlaceholders(data, buf, binaryOffsets, bufferLengths);
   }
 
@@ -153,11 +156,17 @@ export function PlaybackFromFile({ fileUrl }: { fileUrl: string }) {
   // Instead of removing all of the existing scene nodes, we're just going to hide them.
   // This will prevent unnecessary remounting when messages are looped.
   function resetScene() {
-    const sceneTreeState = viewer.useSceneTree.getState();
+    const sceneTreeState = viewer.useSceneTree.getAll();
     Object.keys(sceneTreeState).forEach((key) => {
       if (key === "") return;
       const node = sceneTreeState[key];
       const nodeMessage = node?.message;
+      // Reset pose via mutable ref (no re-render).
+      viewer.mutable.current.nodePoseData[key] = {
+        wxyz: [1, 0, 0, 0],
+        position: [0, 0, 0],
+        poseUpdateState: "needsUpdate",
+      };
       if (
         nodeMessage !== undefined &&
         (nodeMessage.type !== "FrameMessage" || nodeMessage.props.show_axes)
@@ -167,14 +176,6 @@ export function PlaybackFromFile({ fileUrl }: { fileUrl: string }) {
         // will be no message to un-hide them.
         viewer.sceneTreeActions.updateNodeAttributes(key, {
           visibility: false,
-          wxyz: [1, 0, 0, 0],
-          position: [0, 0, 0],
-        });
-      } else if (node !== undefined) {
-        // Still reset poses for frames.
-        viewer.sceneTreeActions.updateNodeAttributes(key, {
-          wxyz: [1, 0, 0, 0],
-          position: [0, 0, 0],
         });
       }
     });
@@ -402,24 +403,23 @@ export function PlaybackFromEmbedData({ base64Data }: { base64Data: string }) {
   const [recording, setRecording] = useState<SerializedMessages | null>(null);
 
   function resetScene() {
-    const sceneTreeState = viewer.useSceneTree.getState();
+    const sceneTreeState = viewer.useSceneTree.getAll();
     Object.keys(sceneTreeState).forEach((key) => {
       if (key === "") return;
       const node = sceneTreeState[key];
       const nodeMessage = node?.message;
+      // Reset pose via mutable ref (no re-render).
+      viewer.mutable.current.nodePoseData[key] = {
+        wxyz: [1, 0, 0, 0],
+        position: [0, 0, 0],
+        poseUpdateState: "needsUpdate",
+      };
       if (
         nodeMessage !== undefined &&
         (nodeMessage.type !== "FrameMessage" || nodeMessage.props.show_axes)
       ) {
         viewer.sceneTreeActions.updateNodeAttributes(key, {
           visibility: false,
-          wxyz: [1, 0, 0, 0],
-          position: [0, 0, 0],
-        });
-      } else if (node !== undefined) {
-        viewer.sceneTreeActions.updateNodeAttributes(key, {
-          wxyz: [1, 0, 0, 0],
-          position: [0, 0, 0],
         });
       }
     });
