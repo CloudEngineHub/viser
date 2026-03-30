@@ -17,52 +17,65 @@ export type SceneNode = {
   effectiveVisibility?: boolean; // Computed visibility including parent chain.
 };
 
-// Pre-defined scene nodes.
-export const rootNodeTemplate: SceneNode = {
-  message: {
-    type: "FrameMessage",
-    name: "",
-    props: {
-      show_axes: false,
-      axes_length: 0.5,
-      axes_radius: 0.0125,
-      origin_radius: 0.025,
-      origin_color: [236, 236, 0],
-      scale: 1.0,
-    },
-  },
-  children: ["/WorldAxes"],
-  clickable: false,
-  visibility: true,
-  effectiveVisibility: true,
+function makeRootNodeTemplate(): SceneNode {
   // Default quaternion: 90 deg around X, 180 deg around Y, -90 deg around Z.
   // This matches the coordinate system transformation.
-  wxyz: (() => {
-    const quat = new THREE.Quaternion().setFromEuler(
-      new THREE.Euler(Math.PI / 2, Math.PI, -Math.PI / 2),
-    );
-    return [quat.w, quat.x, quat.y, quat.z] as [number, number, number, number];
-  })(),
-  position: [0.0, 0.0, 0.0],
-};
-const worldAxesNodeTemplate: SceneNode = {
-  message: {
-    type: "FrameMessage",
-    name: "/WorldAxes",
-    props: {
-      show_axes: true,
-      axes_length: 0.5,
-      axes_radius: 0.0125,
-      origin_radius: 0.025,
-      origin_color: [236, 236, 0],
-      scale: 1.0,
+  const quat = new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(Math.PI / 2, Math.PI, -Math.PI / 2),
+  );
+
+  return {
+    message: {
+      type: "FrameMessage",
+      name: "",
+      props: {
+        show_axes: false,
+        axes_length: 0.5,
+        axes_radius: 0.0125,
+        origin_radius: 0.025,
+        origin_color: [236, 236, 0],
+        scale: 1.0,
+      },
     },
-  },
-  children: [],
-  clickable: false,
-  visibility: true,
-  effectiveVisibility: true,
-};
+    children: ["/WorldAxes"],
+    clickable: false,
+    visibility: true,
+    effectiveVisibility: true,
+    wxyz: [quat.w, quat.x, quat.y, quat.z],
+    position: [0.0, 0.0, 0.0],
+  };
+}
+
+function makeWorldAxesNodeTemplate(): SceneNode {
+  return {
+    message: {
+      type: "FrameMessage",
+      name: "/WorldAxes",
+      props: {
+        show_axes: true,
+        axes_length: 0.5,
+        axes_radius: 0.0125,
+        origin_radius: 0.025,
+        origin_color: [236, 236, 0],
+        scale: 1.0,
+      },
+    },
+    children: [],
+    clickable: false,
+    visibility: true,
+    effectiveVisibility: true,
+  };
+}
+
+function makeDefaultSceneTreeState(): Record<string, SceneNode> {
+  return {
+    "": makeRootNodeTemplate(),
+    "/WorldAxes": makeWorldAxesNodeTemplate(),
+  };
+}
+
+// Pre-defined scene nodes.
+export const rootNodeTemplate: SceneNode = makeRootNodeTemplate();
 
 /** Helper functions that operate on the scene tree store */
 function createSceneTreeActions(
@@ -160,17 +173,26 @@ function createSceneTreeActions(
     },
 
     resetScene: () => {
-      store.setAll(
-        {
-          "": rootNodeTemplate,
-          "/WorldAxes": worldAxesNodeTemplate,
-        },
-        true,
-      );
-      // Clear all stale pose data.
-      for (const key of Object.keys(nodePoseData)) {
-        delete nodePoseData[key];
+      // Remove all children of root except /WorldAxes.
+      const root = store.get("");
+      if (root) {
+        for (const child of root.children) {
+          if (child === "/WorldAxes") continue;
+          actions.removeSceneNode(child);
+        }
       }
+
+      // Reset root and /WorldAxes to default state.
+      const defaultState = makeDefaultSceneTreeState();
+      store.set({
+        "": defaultState[""],
+        "/WorldAxes": defaultState["/WorldAxes"],
+      });
+      nodePoseData[""] = {
+        wxyz: defaultState[""].wxyz!,
+        position: defaultState[""].position!,
+        poseUpdateState: "needsUpdate",
+      };
     },
 
     updateNodeAttributes: (name: string, attributes: Partial<SceneNode>) => {
@@ -268,10 +290,7 @@ export function useSceneTreeState(
   nodePoseData: NodePoseDataMap,
 ) {
   return React.useState(() => {
-    const store = createKeyedStore<SceneNode>({
-      "": rootNodeTemplate,
-      "/WorldAxes": worldAxesNodeTemplate,
-    });
+    const store = createKeyedStore<SceneNode>(makeDefaultSceneTreeState());
 
     const actions = createSceneTreeActions(
       store,

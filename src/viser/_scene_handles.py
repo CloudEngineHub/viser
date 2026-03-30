@@ -227,10 +227,12 @@ class SceneNodeHandle(AssignablePropsBase[_SceneNodeHandleState]):
         if parent_children is not None:
             parent_children.discard(self._impl.name)
 
-        # Single message — client cascades removal to children.
-        self._impl.api._websock_interface.queue_message(
-            _messages.RemoveSceneNodeMessage(self._impl.name)
-        )
+        # Send a RemoveSceneNodeMessage per descendant so redundancy keys
+        # clean up their creation messages from the broadcast buffer.
+        for node_name in to_remove:
+            self._impl.api._websock_interface.queue_message(
+                _messages.RemoveSceneNodeMessage(node_name)
+            )
 
 
 @dataclasses.dataclass(frozen=True)
