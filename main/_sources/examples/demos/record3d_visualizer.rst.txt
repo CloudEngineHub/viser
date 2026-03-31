@@ -15,7 +15,7 @@ Parse and stream Record3D captures. To get demo data, see `../assets/download_as
 
     .. code-block:: bash
 
-        git clone -b v1.0.24 https://github.com/viser-project/viser.git
+        git clone -b v1.0.26 https://github.com/viser-project/viser.git
         cd viser/examples
         ./assets/download_assets.sh
         python 04_demos/00_record3d_visualizer.py  # With viser installed.
@@ -51,6 +51,7 @@ Code
        share: bool = False,
    ) -> None:
        server = viser.ViserServer()
+       server.initial_camera.position = (1.2, 1.2, 1.2)
        if share:
            server.request_share_url()
    
