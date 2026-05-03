@@ -228,7 +228,7 @@ def test_scene_node_drag_modifier_order_insensitive(
     )
 
     # Two distinct function objects so the registry doesn't dedupe.
-    # type: ignore below because "shift+cmd/ctrl" is not in DragModifier's
+    # type: ignore below because "shift+cmd/ctrl" is not in KeyModifier's
     # Literal union — intentionally exercising runtime leniency.
     @box.on_drag_start("left", modifier="shift+cmd/ctrl")  # type: ignore[arg-type]
     def _cb_noncanonical(event: viser.SceneNodeDragEvent[viser.BoxHandle]) -> None:
@@ -240,14 +240,14 @@ def test_scene_node_drag_modifier_order_insensitive(
 
     del _cb_noncanonical, _cb_canonical  # silence "unused" warnings
 
-    # Both registrations should normalize to the same canonical tuple.
+    # Both registrations should normalize to the same canonical string.
     entry_a = box._impl.drag_cb["start"][0]
     entry_b = box._impl.drag_cb["start"][1]
-    assert entry_a.modifiers == entry_b.modifiers, (
-        entry_a.modifiers,
-        entry_b.modifiers,
+    assert entry_a.modifier == entry_b.modifier, (
+        entry_a.modifier,
+        entry_b.modifier,
     )
-    assert entry_a.modifiers == ("cmd/ctrl", "shift")  # canonical wire tuple
+    assert entry_a.modifier == "cmd/ctrl+shift"  # canonical wire string
 
 
 def test_scene_node_drag_pointer_id_isolation(

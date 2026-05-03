@@ -12,10 +12,14 @@ import { normalizeScale } from "./utils/normalizeScale";
 /** Wire-format drag-input filter that the server registers for a node.
  * Mirrors the inlined ``bindings`` field on
  * ``SetSceneNodeDragBindingsMessage`` (the message generator inlines
- * nested-dataclass types so this isn't named on the generated side). */
+ * nested-dataclass types so this isn't named on the generated side).
+ *
+ * ``modifier`` is a canonically ordered ``"+"``-joined string from the
+ * Python ``KeyModifier`` Literal (e.g. ``"cmd/ctrl+shift"``). ``null``
+ * means "no modifiers held". */
 export type DragBinding = {
-  button: "left" | "middle" | "right" | "any";
-  modifiers: ("cmd/ctrl" | "alt" | "shift")[] | null;
+  button: "left" | "middle" | "right";
+  modifier: string | null;
 };
 
 export type PointerButton = "left" | "middle" | "right";
@@ -35,10 +39,10 @@ export function pointerButtonFromNative(native: number): PointerButton | null {
   return null;
 }
 
-/** Match an input against a registered DragBinding. ``modifiers=null`` is a
- * wildcard; otherwise the listed modifiers must be held and any others
- * must not be. ``"cmd/ctrl"`` treats Ctrl and Cmd (meta) as interchangeable
- * — matches whenever either is held.
+/** Match an input against a registered DragBinding. Exact-match: listed
+ * modifiers must be held, others must not. ``modifier=null`` = no
+ * modifiers held. ``"cmd/ctrl"`` treats Ctrl and Cmd (meta) as
+ * interchangeable — matches whenever either is held.
  *
  * The server mirrors this in ``_drag_input_matches_filter`` (see
  * ``src/viser/_scene_api.py``). The client filters at the source —
@@ -50,12 +54,11 @@ export function matchesDragBinding(
   binding: DragBinding,
   input: DragInput,
 ): boolean {
-  if (binding.button !== "any" && binding.button !== input.button) return false;
-  if (binding.modifiers === null) return true;
-  const modSet = new Set(binding.modifiers);
-  if (input.shift !== modSet.has("shift")) return false;
-  if (input.alt !== modSet.has("alt")) return false;
-  if (modSet.has("cmd/ctrl")) {
+  if (binding.button !== input.button) return false;
+  const s = binding.modifier ?? "";
+  if (input.shift !== s.includes("shift")) return false;
+  if (input.alt !== s.includes("alt")) return false;
+  if (s.includes("cmd/ctrl")) {
     if (!input.ctrl && !input.meta) return false;
   } else {
     if (input.ctrl || input.meta) return false;
