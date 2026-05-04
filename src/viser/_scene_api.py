@@ -10,13 +10,13 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from typing import (
     TYPE_CHECKING,
+    Any,
     Callable,
     Optional,
     Tuple,
     TypeVar,
     Union,
     cast,
-    get_args,
     overload,
 )
 
@@ -56,10 +56,12 @@ from ._scene_handles import (
     PointCloudHandle,
     PointLightHandle,
     RectAreaLightHandle,
+    SceneClickEvent,
     SceneNodeDragEvent,
     SceneNodeHandle,
     SceneNodePointerEvent,
     ScenePointerEvent,
+    SceneRectSelectEvent,
     SplineCatmullRomHandle,
     SplineCubicBezierHandle,
     SpotLightHandle,
@@ -88,42 +90,42 @@ RgbTupleOrArray: TypeAlias = Union[
 NoneOrCoroutine = TypeVar("NoneOrCoroutine", None, Coroutine)
 
 
+@dataclasses.dataclass
+class _PointerCallbackEntry:
+    callback: Callable[[Any], None | Coroutine]
+    event_type: _messages.ScenePointerEventType
+    modifier: _messages.KeyModifier | None
+    event_class: type
+
+
+def _modifier_matches_filter(
+    held: _messages.KeyModifier | None,
+    filter_modifier: _messages.KeyModifier | None,
+) -> bool:
+    """Return whether a canonical held-modifier string matches a
+    :data:`KeyModifier` filter.
+
+    Both inputs are already canonicalized by the wire layer (server-side
+    receives them from clients post-canonicalization; user-supplied
+    filters go through ``_normalize_key_modifier``), so this is just
+    string equality.
+
+    Mirrored client-side in ``matchesModifierFilter``
+    (``src/viser/client/src/dragUtils.ts``). Drift = silent missed
+    events or spurious teardowns.
+    """
+    return held == filter_modifier
+
+
 def _drag_input_matches_filter(
     input: _DragInput,
     filter_button: _messages.DragButton,
-    filter_modifier: Optional[_messages.KeyModifier],
+    filter_modifier: _messages.KeyModifier | None,
 ) -> bool:
-    """Return whether a drag input matches a registered binding filter.
-
-    Exact-match: listed modifiers must be held, others must not.
-    ``filter_modifier=None`` = no modifiers held. ``"cmd/ctrl"`` treats
-    Ctrl and Cmd (meta) as interchangeable — matches whenever either is
-    held.
-
-    The client mirrors this logic in ``matchesDragBinding`` (see
-    ``src/viser/client/src/dragUtils.ts``) to filter at the source
-    before sending a drag-start. Both must agree: the client decides
-    whether to enter drag mode at all; the server decides which
-    registered callbacks fire per phase. Drift = silent missed drags
-    or spurious teardowns.
-    """
+    """Return whether a drag input matches a registered binding filter."""
     if filter_button != input.button:
         return False
-    # The 7 valid KeyModifier strings are uniquely identifiable by
-    # substring presence of "cmd/ctrl"/"alt"/"shift", so an `in` check
-    # on the joined string suffices without splitting.
-    s = filter_modifier or ""
-    if input.shift != ("shift" in s):
-        return False
-    if input.alt != ("alt" in s):
-        return False
-    if "cmd/ctrl" in s:
-        if not (input.ctrl or input.meta):
-            return False
-    else:
-        if input.ctrl or input.meta:
-            return False
-    return True
+    return _modifier_matches_filter(input.modifier, filter_modifier)
 
 
 def _encode_rgb(rgb: RgbTupleOrArray) -> tuple[int, int, int]:
@@ -212,10 +214,10 @@ class SceneApi:
         # the user calls ``handle.remove()`` mid-drag (which pops the
         # handle from ``_handle_from_node_name``) and when a client
         # disconnects mid-drag (where the ``end`` message never
-        # arrives) — see ``_drop_active_drags_for_client``. Without
+        # arrives) -- see ``_drop_active_drags_for_client``. Without
         # this the end callback is silently dropped and per-drag user
         # state leaks. Keyed by ``(client_id, node_name)`` because two
-        # clients can drag the same node concurrently — keying by name
+        # clients can drag the same node concurrently -- keying by name
         # alone would let one client's start overwrite the other's,
         # and ``end`` from the first client would pop the wrong entry.
         self._active_drag_handles: dict[
@@ -223,11 +225,12 @@ class SceneApi:
             tuple[_RaycastSupportedSceneNodeHandle, _messages.SceneNodeDragMessage],
         ] = {}
 
-        self._scene_pointer_cb: (
-            Callable[[ScenePointerEvent], None | Coroutine] | None
-        ) = None
-        self._scene_pointer_done_cb: Callable[[], None | Coroutine] = lambda: None
-        self._scene_pointer_event_type: _messages.ScenePointerEventType | None = None
+        # Enable/disable of ``ScenePointerEnableMessage`` is
+        # reference-counted per ``event_type``: enable when the first
+        # callback for that type registers, disable when the last is
+        # removed.
+        self._scene_pointer_cb: list[_PointerCallbackEntry] = []
+        self._scene_pointer_done_cb: list[Callable[[], None | Coroutine]] = []
 
         # Set up world axes handle.
         self.world_axes: FrameHandle = self.add_frame(
@@ -276,7 +279,7 @@ class SceneApi:
         disconnect both leaks the ``_active_drag_handles`` entry (the
         entry pins a ``SceneNodeHandle`` reference, and
         ``_is_drag_active_for`` will return spurious-true for the
-        leaked node name — preventing a future ``remove()`` from
+        leaked node name -- preventing a future ``remove()`` from
         clearing its callbacks) and silently skips ``on_drag_end``."""
         stale_keys = [k for k in self._active_drag_handles if k[0] == client_id]
         for k in stale_keys:
@@ -2740,6 +2743,21 @@ class SceneApi:
                     print_threadpool_errors
                 )
 
+    async def _dispatch_callback(
+        self,
+        cb: Callable[[Any], None | Coroutine],
+        event: Any,
+    ) -> None:
+        """Run a user callback either via ``await`` (async) or via the
+        thread pool (sync). The thread-pool branch routes exceptions
+        through ``print_threadpool_errors``."""
+        if asyncio.iscoroutinefunction(cb):
+            await cb(event)
+        else:
+            self._thread_executor.submit(cb, event).add_done_callback(
+                print_threadpool_errors
+            )
+
     async def _handle_node_click_updates(
         self, client_id: ClientId, message: _messages.SceneNodeClickMessage
     ) -> None:
@@ -2747,23 +2765,24 @@ class SceneApi:
         handle = self._handle_from_node_name.get(message.name, None)
         if handle is None or handle._impl.click_cb is None:
             return
-        for cb in handle._impl.click_cb:
-            event = SceneNodePointerEvent(
-                client=self._get_client_handle(client_id),
-                client_id=client_id,
-                event="click",
-                target=cast(_RaycastSupportedSceneNodeHandle, handle),
-                ray_origin=message.ray_origin,
-                ray_direction=message.ray_direction,
-                screen_pos=message.screen_pos,
-                instance_index=message.instance_index,
-            )
-            if asyncio.iscoroutinefunction(cb):
-                await cb(event)
-            else:
-                self._thread_executor.submit(cb, event).add_done_callback(
-                    print_threadpool_errors
-                )
+        event = SceneNodePointerEvent(
+            client=self._get_client_handle(client_id),
+            client_id=client_id,
+            event="click",
+            target=cast(_RaycastSupportedSceneNodeHandle, handle),
+            ray_origin=message.ray_origin,
+            ray_direction=message.ray_direction,
+            screen_pos=message.screen_pos,
+            instance_index=message.instance_index,
+            modifier=message.modifier,
+        )
+        # Snapshot the list -- a callback may register/remove other
+        # callbacks during dispatch; mutations should not affect the
+        # in-flight iteration.
+        for entry in list(handle._impl.click_cb):
+            if not _modifier_matches_filter(message.modifier, entry.modifier):
+                continue
+            await self._dispatch_callback(entry.callback, event)
 
     async def _handle_node_drag(
         self,
@@ -2775,7 +2794,7 @@ class SceneApi:
 
         Note on ordering: sync callbacks are submitted to a thread pool
         fire-and-forget, so two drags messages dispatched back-to-back
-        (e.g. start + update) can race — the update's callback may run
+        (e.g. start + update) can race -- the update's callback may run
         before the start's callback finishes, leaving user state
         half-initialized. Async callbacks are awaited in order and don't
         have this issue, so for stateful gestures define your callbacks
@@ -2786,7 +2805,7 @@ class SceneApi:
         # disconnect can carry the latest positions). On update, refresh
         # the stored message. On update/end, prefer the active-drag map
         # so we can still dispatch even if the node was removed
-        # mid-drag — the user's on_drag_end MUST fire so per-drag state
+        # mid-drag -- the user's on_drag_end MUST fire so per-drag state
         # can be released. The active-drag entry is always cleared on
         # ``end``, even when dispatch falls through.
         active_key = (client_id, message.name)
@@ -2820,13 +2839,7 @@ class SceneApi:
 
         Shared by ``_handle_node_drag`` (live messages) and
         ``_drop_active_drags_for_client`` (synthetic end on disconnect)."""
-        input = _DragInput(
-            button=message.button,
-            ctrl=message.ctrl,
-            meta=message.meta,
-            shift=message.shift,
-            alt=message.alt,
-        )
+        input = _DragInput(button=message.button, modifier=message.modifier)
         matching = handle._dispatch_drag(message.phase, input)
         if not matching:
             return
@@ -2841,139 +2854,319 @@ class SceneApi:
             end_position=message.end_position,
             end_screen_pos=message.end_screen_pos,
             button=message.button,
-            ctrl=message.ctrl,
-            meta=message.meta,
-            shift=message.shift,
-            alt=message.alt,
+            modifier=message.modifier,
         )
         for cb in matching:
-            if asyncio.iscoroutinefunction(cb):
-                await cb(event)
-            else:
-                self._thread_executor.submit(cb, event).add_done_callback(
-                    print_threadpool_errors
-                )
+            await self._dispatch_callback(cb, event)
 
     async def _handle_scene_pointer_updates(
         self, client_id: ClientId, message: _messages.ScenePointerMessage
     ):
-        """Callback for handling click messages."""
-        event = ScenePointerEvent(
-            client=self._get_client_handle(client_id),
+        """Dispatch a scene-level click or rect-select to matching
+        callbacks (new typed APIs and legacy ``on_pointer_event``)."""
+        if not self._scene_pointer_cb:
+            return
+        client = self._get_client_handle(client_id)
+        modifier = message.modifier
+
+        # Build the typed event once for the actual gesture; the legacy
+        # union-shape event is also built once. ``ScenePointerEvent``
+        # remains a separate path because it lumps clicks and rect-
+        # selects into one shape with Optional ray fields.
+        typed_event: SceneClickEvent | SceneRectSelectEvent
+        if message.event_type == "click":
+            assert message.ray_origin is not None
+            assert message.ray_direction is not None
+            typed_event = SceneClickEvent(
+                client=client,
+                client_id=client_id,
+                ray_origin=message.ray_origin,
+                ray_direction=message.ray_direction,
+                screen_pos=message.screen_pos[0],
+                modifier=modifier,
+            )
+        else:
+            typed_event = SceneRectSelectEvent(
+                client=client,
+                client_id=client_id,
+                screen_min=message.screen_pos[0],
+                screen_max=message.screen_pos[1],
+                modifier=modifier,
+            )
+        legacy_event = ScenePointerEvent(
+            client=client,
             client_id=client_id,
             event_type=message.event_type,
             ray_origin=message.ray_origin,
             ray_direction=message.ray_direction,
             screen_pos=message.screen_pos,
+            modifier=modifier,
         )
-        # Call the callback if it exists, and the after-run callback.
-        if self._scene_pointer_cb is None:
-            return
-        if asyncio.iscoroutinefunction(self._scene_pointer_cb):
-            await self._scene_pointer_cb(event)
-        else:
-            self._thread_executor.submit(
-                self._scene_pointer_cb, event
-            ).add_done_callback(print_threadpool_errors)
 
+        # Snapshot the list -- a callback may register/remove other
+        # callbacks during dispatch; mutations should not affect the
+        # in-flight iteration.
+        for entry in list(self._scene_pointer_cb):
+            if entry.event_type != message.event_type:
+                continue
+            if not _modifier_matches_filter(modifier, entry.modifier):
+                continue
+            event = (
+                legacy_event if entry.event_class is ScenePointerEvent else typed_event
+            )
+            await self._dispatch_callback(entry.callback, event)
+
+    def on_click(
+        self,
+        *,
+        modifier: _messages.KeyModifier | None = None,
+    ) -> Callable[
+        [Callable[[SceneClickEvent], None]], Callable[[SceneClickEvent], None]
+    ]:
+        """Register a callback for clicks anywhere in the scene
+        (background and meshes both, after the per-node ``on_click``
+        for any clickable mesh under the cursor).
+
+        Multiple callbacks can be registered. Each fires only when its
+        ``modifier`` filter matches the modifiers held at click time.
+
+        Args:
+            modifier: Modifier-combo filter. Default ``None`` matches
+                "no modifiers held". ``"cmd/ctrl"``, ``"shift"``,
+                ``"cmd/ctrl+shift"``, etc. are exact matches (listed
+                modifiers held, others not). ``cmd/ctrl`` matches
+                whenever either Cmd or Ctrl is held.
+        """
+        return self._register_scene_pointer_callback("click", modifier, SceneClickEvent)
+
+    def on_rect_select(
+        self,
+        *,
+        modifier: _messages.KeyModifier | None = None,
+    ) -> Callable[
+        [Callable[[SceneRectSelectEvent], None]],
+        Callable[[SceneRectSelectEvent], None],
+    ]:
+        """Register a callback for rectangle-select gestures (drag a
+        box on the canvas).
+
+        Multiple callbacks can be registered. Each fires only when its
+        ``modifier`` filter matches the modifiers held at gesture
+        start. The selection rectangle is drawn on the canvas only
+        when the held modifiers match at least one registered
+        callback's filter.
+
+        Args:
+            modifier: See :meth:`on_click` for semantics.
+        """
+        return self._register_scene_pointer_callback(
+            "rect-select", modifier, SceneRectSelectEvent
+        )
+
+    @deprecated(
+        "Use on_click() (with SceneClickEvent) or on_rect_select() "
+        "(with SceneRectSelectEvent) instead."
+    )
     def on_pointer_event(
-        self, event_type: Literal["click", "rect-select"]
+        self,
+        event_type: Literal["click", "rect-select"],
+        *,
+        modifier: _messages.KeyModifier | None = None,
     ) -> Callable[
         [Callable[[ScenePointerEvent], None]], Callable[[ScenePointerEvent], None]
     ]:
-        """Add a callback for scene pointer events.
+        """Legacy registration that hands callbacks the union-shaped
+        :class:`ScenePointerEvent`. Single-slot semantics: re-registering
+        replaces the existing pointer callback (and fires any pending
+        :meth:`on_pointer_callback_removed` cleanups).
 
-        Args:
-            event_type: event to listen to.
+        .. deprecated::
+            Use :meth:`on_click` or :meth:`on_rect_select` instead.
+            They produce the typed :class:`SceneClickEvent` /
+            :class:`SceneRectSelectEvent` and accept multiple
+            coexisting callbacks.
         """
-        # Ensure the event type is valid.
-        assert event_type in get_args(_messages.ScenePointerEventType)
-
-        from ._viser import ClientHandle, ViserServer
-
-        def cleanup_previous_event(target: ViserServer | ClientHandle):
-            # If the server or client does not have a scene pointer callback, return.
-            if target.scene._scene_pointer_cb is None:
-                return
-
-            # Remove callback.
-            target.scene.remove_pointer_callback()
+        register = self._register_scene_pointer_callback(
+            event_type, modifier, ScenePointerEvent
+        )
 
         def decorator(
             func: Callable[[ScenePointerEvent], None],
         ) -> Callable[[ScenePointerEvent], None]:
-            # Check if another scene pointer event was previously registered.
-            # If so, we need to clear the previous event and register the new one.
-            cleanup_previous_event(self._owner)
+            # Preserve legacy "one pointer callback at a time" semantic
+            # -- replace any prior on_pointer_event/on_click/on_rect_select
+            # registrations and fire their cleanup hooks before adding.
+            self._remove_all_pointer_callbacks()
+            return register(func)
 
-            # If called on the server handle, remove all clients' callbacks.
+        return decorator
+
+    def _register_scene_pointer_callback(
+        self,
+        event_type: _messages.ScenePointerEventType,
+        modifier: _messages.KeyModifier | None,
+        event_class: type,
+    ) -> Any:
+        normalized_modifier = _messages._normalize_key_modifier(modifier)
+
+        from ._viser import ClientHandle, ViserServer
+
+        def decorator(func: Callable[[Any], None]) -> Callable[[Any], None]:
+            # Server-scope and client-scope share the same client-side
+            # enable toggle. Coexistence would let one scope's
+            # disable silently deactivate the other's callbacks;
+            # enforce exclusivity instead.
             if isinstance(self._owner, ViserServer):
                 for client in self._owner.get_clients().values():
-                    cleanup_previous_event(client)
-
-            # If called on the client handle, and server handle has a callback, remove the server's callback.
-            # (If the server has a callback, none of the clients should have callbacks.)
+                    client.scene._remove_all_pointer_callbacks()
             elif isinstance(self._owner, ClientHandle):
-                server = self._owner._viser_server
-                cleanup_previous_event(server)
+                self._owner._viser_server.scene._remove_all_pointer_callbacks()
 
-            self._scene_pointer_cb = func
-            self._scene_pointer_event_type = event_type
-
-            self._websock_interface.queue_message(
-                _messages.ScenePointerEnableMessage(enable=True, event_type=event_type)
+            self._scene_pointer_cb.append(
+                _PointerCallbackEntry(
+                    callback=func,
+                    event_type=event_type,
+                    modifier=normalized_modifier,
+                    event_class=event_class,
+                )
             )
+            self._sync_scene_pointer_filters(event_type)
             return func
 
         return decorator
 
+    def _sync_scene_pointer_filters(
+        self, event_type: _messages.ScenePointerEventType
+    ) -> None:
+        """Send the current modifier-filter set for ``event_type`` to the
+        client. An empty set disables the event type. Duplicates are
+        collapsed -- multiple callbacks under the same filter only need
+        one wire entry to gate gesture engagement."""
+        modifiers = cast(
+            Tuple[Optional[_messages.KeyModifier], ...],
+            tuple(
+                {
+                    entry.modifier
+                    for entry in self._scene_pointer_cb
+                    if entry.event_type == event_type
+                }
+            ),
+        )
+        self._websock_interface.queue_message(
+            _messages.ScenePointerEnableMessage(
+                event_type=event_type, modifiers=modifiers
+            )
+        )
+
+    @deprecated(
+        "Run cleanup inline right after remove_click_callback() / "
+        "remove_rect_select_callback() instead."
+    )
     def on_pointer_callback_removed(
         self,
         func: Callable[[], NoneOrCoroutine],
     ) -> Callable[[], NoneOrCoroutine]:
-        """Add a callback to run automatically when the callback for a scene
-        pointer event is removed. This will be triggered exactly once, either
-        manually (via :meth:`remove_pointer_callback()`) or automatically (if
-        the scene pointer event is overridden with another call to
-        :meth:`on_pointer_event()`).
+        """Add a cleanup callback fired when the scene pointer
+        registration list becomes empty.
+
+        .. deprecated::
+            Paired with the deprecated :meth:`on_pointer_event` /
+            :meth:`remove_pointer_callback`. With :meth:`on_click` /
+            :meth:`on_rect_select` (which can coexist) and
+            :meth:`remove_click_callback` /
+            :meth:`remove_rect_select_callback`, run cleanup inline
+            right after the per-event removal.
 
         Args:
             func: Callback for when scene pointer events are removed.
         """
-        self._scene_pointer_done_cb = func
+        self._scene_pointer_done_cb.append(func)
         return func
 
+    def remove_click_callback(
+        self, callback: Literal["all"] | Callable = "all"
+    ) -> None:
+        """Remove scene-level click callbacks registered via
+        :meth:`on_click`. Pass a specific function to remove just that
+        registration, or ``"all"`` to clear every click registration."""
+        self._remove_pointer_callback("click", callback)
+
+    def remove_rect_select_callback(
+        self, callback: Literal["all"] | Callable = "all"
+    ) -> None:
+        """Remove rect-select callbacks registered via
+        :meth:`on_rect_select`. Pass a specific function to remove just
+        that registration, or ``"all"`` to clear every rect-select
+        registration."""
+        self._remove_pointer_callback("rect-select", callback)
+
+    def _remove_pointer_callback(
+        self,
+        event_type: _messages.ScenePointerEventType,
+        callback: Literal["all"] | Callable,
+    ) -> None:
+        before = len(self._scene_pointer_cb)
+        if callback == "all":
+            self._scene_pointer_cb = [
+                entry
+                for entry in self._scene_pointer_cb
+                if entry.event_type != event_type
+            ]
+        else:
+            self._scene_pointer_cb = [
+                entry
+                for entry in self._scene_pointer_cb
+                if not (entry.event_type == event_type and entry.callback == callback)
+            ]
+        if len(self._scene_pointer_cb) == before:
+            return
+        self._sync_scene_pointer_filters(event_type)
+        # Fire cleanup callbacks once the user's last registration is
+        # gone -- same teardown contract as the legacy
+        # ``remove_pointer_callback()`` path.
+        if not self._scene_pointer_cb:
+            self._fire_scene_pointer_done_callbacks()
+
+    @deprecated("Use remove_click_callback() or remove_rect_select_callback() instead.")
     def remove_pointer_callback(
         self,
     ) -> None:
-        """Remove the currently attached scene pointer event. This will trigger
-        any callback attached to :meth:`on_pointer_callback_removed()`."""
+        """Remove all attached scene pointer event callbacks. This will
+        trigger any callback attached to
+        :meth:`on_pointer_callback_removed()`.
 
-        if self._scene_pointer_cb is None:
-            warnings.warn(
-                "No scene pointer callback exists for this server/client, ignoring.",
-                stacklevel=2,
-            )
+        .. deprecated::
+            Paired with the deprecated :meth:`on_pointer_event`. Use
+            :meth:`remove_click_callback` and/or
+            :meth:`remove_rect_select_callback` for the per-event-type
+            equivalents.
+        """
+        self._remove_all_pointer_callbacks()
+
+    def _remove_all_pointer_callbacks(self) -> None:
+        if not self._scene_pointer_cb:
             return
 
-        # Notify client that the listener has been removed.
-        event_type = self._scene_pointer_event_type
-        assert event_type is not None
-        self._websock_interface.queue_message(
-            _messages.ScenePointerEnableMessage(enable=False, event_type=event_type)
-        )
+        # Empty the callback list, then sync the disable for every
+        # event_type that had at least one entry.
+        seen_event_types: set[_messages.ScenePointerEventType] = {
+            entry.event_type for entry in self._scene_pointer_cb
+        }
+        self._scene_pointer_cb = []
+        for event_type in seen_event_types:
+            self._sync_scene_pointer_filters(event_type)
         self._owner.flush()
+        self._fire_scene_pointer_done_callbacks()
 
-        # Run cleanup callback.
-        if asyncio.iscoroutinefunction(self._scene_pointer_done_cb):
-            self._event_loop.create_task(self._scene_pointer_done_cb())
-        else:
-            self._scene_pointer_done_cb()
-
-        # Reset the callback and event type, on the python side.
-        self._scene_pointer_cb = None
-        self._scene_pointer_done_cb = lambda: None
-        self._scene_pointer_event_type = None
+    def _fire_scene_pointer_done_callbacks(self) -> None:
+        # Snapshot -- each cleanup may unregister itself via the same
+        # handle without breaking iteration.
+        for cleanup in list(self._scene_pointer_done_cb):
+            if asyncio.iscoroutinefunction(cleanup):
+                self._event_loop.create_task(cleanup())
+            else:
+                cleanup()
+        self._scene_pointer_done_cb = []
 
     @deprecated_positional_shim
     def add_3d_gui_container(

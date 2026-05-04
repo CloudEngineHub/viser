@@ -30,6 +30,11 @@ import { useDisclosure } from "@mantine/hooks";
 import { SynchronizedCameraControls } from "./CameraControls";
 import { SceneNodeThreeObject } from "./SceneTree";
 import { DragLayer } from "./DragLayer";
+import {
+  KeyModifier,
+  keyModifierFromEvent,
+  matchesModifierFilter,
+} from "./dragUtils";
 import { shallowArrayEqual } from "./utils/shallowArrayEqual";
 import {
   ndcFromPointerXy,
@@ -216,10 +221,12 @@ function ViewerRoot() {
 
     // Interaction state.
     scenePointerInfo: {
-      enabled: false,
+      filtersByEventType: new Map(),
       dragStart: [0, 0],
       dragEnd: [0, 0],
       isDragging: false,
+      modifierAtDown: null,
+      activeEventTypes: new Set(),
     },
 
     // Skinned mesh state.
@@ -468,7 +475,7 @@ function ViewerCanvas({ children }: { children: React.ReactNode }) {
   const handlePointerDown = (e: React.PointerEvent) => {
     const { mutable } = viewer;
     const pointerInfo = mutable.current.scenePointerInfo;
-    if (pointerInfo.enabled === false) return;
+    if (pointerInfo.filtersByEventType.size === 0) return;
 
     const canvasBbox = mutable.current.canvas!.getBoundingClientRect();
     pointerInfo.dragStart = [
@@ -480,6 +487,23 @@ function ViewerCanvas({ children }: { children: React.ReactNode }) {
     if (ndcFromPointerXy(viewer, pointerInfo.dragEnd) === null) return;
     if (pointerInfo.isDragging) return;
 
+    // Capture modifier state at gesture start; mid-gesture changes
+    // shouldn't perturb dispatch (matches drag-callback semantics).
+    const modifier = keyModifierFromEvent(e);
+
+    // Gate engagement on modifier match. If no registered filter for
+    // any enabled event_type matches the held modifiers, this isn't a
+    // scene-pointer gesture -- let camera controls handle it.
+    const activeEventTypes = new Set<"click" | "rect-select">();
+    for (const [eventType, filters] of pointerInfo.filtersByEventType) {
+      if (filters.some((f) => matchesModifierFilter(modifier, f))) {
+        activeEventTypes.add(eventType);
+      }
+    }
+    if (activeEventTypes.size === 0) return;
+
+    pointerInfo.modifierAtDown = modifier;
+    pointerInfo.activeEventTypes = activeEventTypes;
     pointerInfo.isDragging = true;
     mutable.current.cameraControl!.enabled = false;
 
@@ -491,7 +515,7 @@ function ViewerCanvas({ children }: { children: React.ReactNode }) {
   const handlePointerMove = (e: React.PointerEvent) => {
     const { mutable } = viewer;
     const pointerInfo = mutable.current.scenePointerInfo;
-    if (pointerInfo.enabled === false || !pointerInfo.isDragging) return;
+    if (!pointerInfo.isDragging) return;
 
     const canvasBbox = mutable.current.canvas!.getBoundingClientRect();
     const pointerXy: [number, number] = [
@@ -509,8 +533,9 @@ function ViewerCanvas({ children }: { children: React.ReactNode }) {
     )
       return;
 
-    // Draw selection rectangle if in rect-select mode.
-    if (pointerInfo.enabled === "rect-select") {
+    // Draw selection rectangle only if rect-select was active for
+    // this gesture's modifier state at pointerdown.
+    if (pointerInfo.activeEventTypes.has("rect-select")) {
       const ctx = mutable.current.canvas2d!.getContext("2d")!;
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
       ctx.beginPath();
@@ -532,22 +557,36 @@ function ViewerCanvas({ children }: { children: React.ReactNode }) {
   const handlePointerUp = () => {
     const { mutable } = viewer;
     const pointerInfo = mutable.current.scenePointerInfo;
+    const wasDragging = pointerInfo.isDragging;
 
-    // Re-enable camera controls.
+    // Reset gesture state and erase the rectangle overlay before any
+    // early return -- otherwise a server callback removed mid-gesture
+    // can leave stale ``isDragging`` or a drawn rectangle behind.
     mutable.current.cameraControl!.enabled = true;
-    if (pointerInfo.enabled === false || !pointerInfo.isDragging) return;
-
+    pointerInfo.isDragging = false;
+    const activeEventTypes = pointerInfo.activeEventTypes;
+    pointerInfo.activeEventTypes = new Set();
     const ctx = mutable.current.canvas2d!.getContext("2d")!;
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    if (!wasDragging || activeEventTypes.size === 0) return;
 
-    // Handle click or rect-select based on mode.
-    if (pointerInfo.enabled === "click") {
-      sendClickMessage(viewer, pointerInfo.dragEnd, sendClickThrottled);
-    } else if (pointerInfo.enabled === "rect-select") {
-      sendRectSelectMessage(viewer, pointerInfo, sendClickThrottled);
+    const modifier = pointerInfo.modifierAtDown;
+
+    // Disambiguate click vs rect-select by displacement (same 3-pixel
+    // threshold as handlePointerMove uses for drawing the rectangle).
+    const moved =
+      Math.abs(pointerInfo.dragEnd[0] - pointerInfo.dragStart[0]) > 3 ||
+      Math.abs(pointerInfo.dragEnd[1] - pointerInfo.dragStart[1]) > 3;
+    if (!moved && activeEventTypes.has("click")) {
+      sendClickMessage(
+        viewer,
+        pointerInfo.dragEnd,
+        modifier,
+        sendClickThrottled,
+      );
+    } else if (moved && activeEventTypes.has("rect-select")) {
+      sendRectSelectMessage(viewer, pointerInfo, modifier, sendClickThrottled);
     }
-
-    pointerInfo.isDragging = false;
   };
 
   const fixedDpr = viewer.useDevSettings((state) => state.fixedDpr);
@@ -602,6 +641,7 @@ function ViewerCanvas({ children }: { children: React.ReactNode }) {
 function sendClickMessage(
   viewer: ViewerContextContents,
   pointerPos: [number, number],
+  modifier: KeyModifier | null,
   sendClickThrottled: (message: any) => void,
 ) {
   const raycaster = new THREE.Raycaster();
@@ -618,6 +658,7 @@ function sendClickMessage(
     ray_origin: [ray.origin.x, ray.origin.y, ray.origin.z],
     ray_direction: [ray.direction.x, ray.direction.y, ray.direction.z],
     screen_pos: [[mouseVectorOpenCV.x, mouseVectorOpenCV.y]],
+    modifier,
   });
 }
 
@@ -627,6 +668,7 @@ function sendClickMessage(
 function sendRectSelectMessage(
   viewer: ViewerContextContents,
   pointerInfo: { dragStart: [number, number]; dragEnd: [number, number] },
+  modifier: KeyModifier | null,
   sendClickThrottled: (message: any) => void,
 ) {
   const firstMouseVector = opencvXyFromPointerXy(viewer, pointerInfo.dragStart);
@@ -646,6 +688,7 @@ function sendRectSelectMessage(
       [x_min, y_min],
       [x_max, y_max],
     ],
+    modifier,
   });
 }
 

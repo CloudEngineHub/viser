@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import dataclasses
 import uuid
-from typing import Any, ClassVar, Dict, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, ClassVar, Dict, Optional, Tuple, Type, TypeVar, Union, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -23,13 +23,48 @@ KeyModifier = Literal[
     "cmd/ctrl+alt+shift",
 ]
 """Modifier-key combination, used by both scene-node drag bindings and
-hotkey bindings. A canonically ordered ``"+"``-separated string —
+hotkey bindings. A canonically ordered ``"+"``-separated string --
 ``cmd/ctrl → alt → shift``. Non-canonical orderings like
 ``"shift+cmd/ctrl"`` type-check-fail, though the runtime parser will
 accept them (it canonicalizes internally).
 
-``cmd/ctrl`` matches whenever either Cmd or Ctrl is held — callbacks
-that need to distinguish can read ``event.ctrl`` / ``event.meta``."""
+``cmd/ctrl`` matches whenever either Cmd or Ctrl is held; the two
+keys are deliberately collapsed (the same gesture is "Cmd" on Mac
+and "Ctrl" elsewhere)."""
+
+_KEY_MODIFIER_CANONICAL_ORDER: Tuple[str, ...] = ("cmd/ctrl", "alt", "shift")
+
+
+def _normalize_key_modifier(modifier: Optional[str]) -> Optional[KeyModifier]:
+    """Parse a :data:`KeyModifier` string into its canonical form.
+
+    ``None`` and ``""`` map to ``None``. Otherwise, split on ``"+"``,
+    validate each name, and canonicalize the order -- both
+    ``"cmd/ctrl+shift"`` and ``"shift+cmd/ctrl"`` yield
+    ``"cmd/ctrl+shift"``. Type annotations only allow the canonical
+    form; the runtime is lenient for users who don't run a type-checker.
+    """
+    if modifier is None or modifier == "":
+        return None
+    parts = modifier.split("+")
+    modifier_set = set(parts)
+    valid = set(_KEY_MODIFIER_CANONICAL_ORDER)
+    unknown = modifier_set - valid
+    if unknown:
+        raise ValueError(
+            f"Unknown modifier(s) in {modifier!r}: {sorted(unknown)!r}. "
+            f"Valid modifiers: {sorted(valid)!r}."
+        )
+    if len(parts) != len(modifier_set):
+        duplicates = [p for p in parts if parts.count(p) > 1]
+        raise ValueError(
+            f"Duplicate modifier(s) in {modifier!r}: {sorted(set(duplicates))!r}."
+        )
+    return cast(
+        KeyModifier,
+        "+".join(m for m in _KEY_MODIFIER_CANONICAL_ORDER if m in modifier_set),
+    )
+
 
 DragButton = Literal["left", "middle", "right"]
 """Mouse button that triggers a scene-node drag."""
@@ -400,20 +435,25 @@ class ScenePointerMessage(Message, include_in_scene_serialization=False):
     ray_origin: Optional[Tuple[float, float, float]]
     ray_direction: Optional[Tuple[float, float, float]]
     screen_pos: Tuple[Tuple[float, float], ...]
+    modifier: Optional[KeyModifier]
 
 
 @dataclasses.dataclass
 class ScenePointerEnableMessage(Message, include_in_scene_serialization=False):
-    """Message to enable/disable scene click events."""
+    """Set the modifier-filter set for a scene pointer ``event_type``.
 
-    enable: bool
+    An empty ``modifiers`` tuple disables all callbacks for that
+    ``event_type``. A non-empty tuple enables them, and the client uses
+    the filter list to gate gesture engagement: a pointerdown whose
+    held-modifier state doesn't match any filter is treated as if no
+    callback were registered (no rectangle drawn, no message sent)."""
+
     event_type: ScenePointerEventType
+    modifiers: Tuple[Optional[KeyModifier], ...]
 
     @override
     def redundancy_key(self) -> str:
-        return (
-            type(self).__name__ + "-" + self.event_type + "-" + str(self.enable).lower()
-        )
+        return type(self).__name__ + "-" + self.event_type
 
 
 @dataclasses.dataclass
@@ -1376,6 +1416,7 @@ class SceneNodeClickMessage(Message, include_in_scene_serialization=False):
     ray_origin: Tuple[float, float, float]
     ray_direction: Tuple[float, float, float]
     screen_pos: Tuple[float, float]
+    modifier: Optional[KeyModifier]
 
 
 _DragPhase: TypeAlias = Literal["start", "update", "end"]
@@ -1385,7 +1426,7 @@ _DragPhase: TypeAlias = Literal["start", "update", "end"]
 class SceneNodeDragMessage(Message, include_in_scene_serialization=False):
     """Client -> server message for a scene-node drag (start/update/end).
 
-    All position/screen fields are *live* — recomputed on every
+    All position/screen fields are *live* -- recomputed on every
     start/update/end. ``start_*`` tracks the original click point as it
     moves with the object (the grab point); ``end_*`` tracks the current
     pointer projected onto the camera-aligned drag plane."""
@@ -1405,10 +1446,7 @@ class SceneNodeDragMessage(Message, include_in_scene_serialization=False):
     end_screen_pos: Tuple[float, float]
     """Current pointer in OpenCV screen-space coordinates."""
     button: Literal["left", "middle", "right"]
-    ctrl: bool
-    meta: bool
-    shift: bool
-    alt: bool
+    modifier: Optional[KeyModifier]
 
 
 @dataclasses.dataclass

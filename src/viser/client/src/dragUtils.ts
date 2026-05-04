@@ -1,7 +1,7 @@
 /** Shared types + pure helpers for scene-node drag handling.
  *
  * Split from ``DragLayer.tsx`` so the Fast Refresh (HMR) module boundary
- * only contains components — React warns when a component file also
+ * only contains components -- React warns when a component file also
  * exports non-components. */
 
 import * as THREE from "three";
@@ -9,27 +9,34 @@ import { ViewerContextContents } from "./ViewerContext";
 import { SceneNodeMessage } from "./WebsocketMessages";
 import { normalizeScale } from "./utils/normalizeScale";
 
+/** Canonical modifier-key combo. Mirrors the Python ``KeyModifier``
+ * Literal in ``src/viser/_messages.py``. The TypeScript message
+ * generator inlines this union at every occurrence; we define it once
+ * here so it can be shared by ``DragInput``, ``DragBinding``,
+ * ``ScenePointerInfo.modifierAtDown``, etc. ``null`` means "no
+ * modifiers held". */
+export type KeyModifier =
+  | "cmd/ctrl"
+  | "alt"
+  | "shift"
+  | "cmd/ctrl+alt"
+  | "cmd/ctrl+shift"
+  | "alt+shift"
+  | "cmd/ctrl+alt+shift";
+
 /** Wire-format drag-input filter that the server registers for a node.
  * Mirrors the inlined ``bindings`` field on
- * ``SetSceneNodeDragBindingsMessage`` (the message generator inlines
- * nested-dataclass types so this isn't named on the generated side).
- *
- * ``modifier`` is a canonically ordered ``"+"``-joined string from the
- * Python ``KeyModifier`` Literal (e.g. ``"cmd/ctrl+shift"``). ``null``
- * means "no modifiers held". */
+ * ``SetSceneNodeDragBindingsMessage``. */
 export type DragBinding = {
   button: "left" | "middle" | "right";
-  modifier: string | null;
+  modifier: KeyModifier | null;
 };
 
 export type PointerButton = "left" | "middle" | "right";
 
 export type DragInput = {
   button: PointerButton;
-  ctrl: boolean;
-  meta: boolean;
-  shift: boolean;
-  alt: boolean;
+  modifier: KeyModifier | null;
 };
 
 export function pointerButtonFromNative(native: number): PointerButton | null {
@@ -39,31 +46,48 @@ export function pointerButtonFromNative(native: number): PointerButton | null {
   return null;
 }
 
-/** Match an input against a registered DragBinding. Exact-match: listed
- * modifiers must be held, others must not. ``modifier=null`` = no
- * modifiers held. ``"cmd/ctrl"`` treats Ctrl and Cmd (meta) as
- * interchangeable — matches whenever either is held.
+/** Build a canonical ``KeyModifier`` string from a DOM event's modifier
+ * keys. Cmd and Ctrl collapse to ``"cmd/ctrl"`` (the same gesture across
+ * Mac/Windows/Linux). Returns ``null`` when no modifiers are held.
  *
- * The server mirrors this in ``_drag_input_matches_filter`` (see
- * ``src/viser/_scene_api.py``). The client filters at the source —
- * if no binding matches the input, no drag-start is sent — and the
- * server filters per registered callback to dispatch only to the
- * ones whose binding matched the input. Both must agree; drift =
- * silent missed drags or spurious teardowns. */
+ * The resulting string mirrors the server-side ``KeyModifier`` Literal,
+ * so wire messages can carry a single ``modifier`` field instead of
+ * four separate booleans. */
+export function keyModifierFromEvent(e: {
+  ctrlKey: boolean;
+  metaKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+}): KeyModifier | null {
+  const parts: string[] = [];
+  if (e.ctrlKey || e.metaKey) parts.push("cmd/ctrl");
+  if (e.altKey) parts.push("alt");
+  if (e.shiftKey) parts.push("shift");
+  return parts.length === 0 ? null : (parts.join("+") as KeyModifier);
+}
+
+/** Match a held-modifier string against a :data:`KeyModifier` filter.
+ *
+ * Both sides are already canonicalized (held strings come from
+ * ``keyModifierFromEvent``; filter strings come from the server, which
+ * normalizes user-supplied values), so this is just string equality.
+ *
+ * Mirrors ``_modifier_matches_filter`` on the server (see
+ * ``src/viser/_scene_api.py``). */
+export function matchesModifierFilter(
+  held: KeyModifier | null,
+  filter: KeyModifier | null,
+): boolean {
+  return held === filter;
+}
+
+/** Match an input against a registered DragBinding. */
 export function matchesDragBinding(
   binding: DragBinding,
   input: DragInput,
 ): boolean {
   if (binding.button !== input.button) return false;
-  const s = binding.modifier ?? "";
-  if (input.shift !== s.includes("shift")) return false;
-  if (input.alt !== s.includes("alt")) return false;
-  if (s.includes("cmd/ctrl")) {
-    if (!input.ctrl && !input.meta) return false;
-  } else {
-    if (input.ctrl || input.meta) return false;
-  }
-  return true;
+  return matchesModifierFilter(input.modifier, binding.modifier);
 }
 
 export function anyBindingMatches(
@@ -90,7 +114,7 @@ export type ActiveDragState = {
   targetObj: THREE.Object3D;
   /** PointerId from the pointerdown that started this drag. Window-level
    * pointermove / pointerup / pointercancel events carry their own
-   * pointerId and we ignore mismatches — a second finger's release on a
+   * pointerId and we ignore mismatches -- a second finger's release on a
    * multi-touch surface shouldn't end the first finger's drag. */
   pointerId: number;
   /** Click point expressed in the instance's local coordinate frame
@@ -138,7 +162,7 @@ export function isBatchedMessage(
 /** Subset of batched message types that route through the vendored
  * ``InstancedMesh2`` (BatchedMesh, BatchedGlb), whose raycast emits
  * ``intersection.point`` in InstancedMesh-local coords instead of
- * world coords — see ``vendor/instanced-mesh/core/feature/Raycasting.ts``.
+ * world coords -- see ``vendor/instanced-mesh/core/feature/Raycasting.ts``.
  *
  * ``BatchedAxesMessage`` is intentionally NOT included: it uses a stock
  * ``THREE.InstancedMesh`` which does the standard ``mesh.matrixWorld``
@@ -174,7 +198,7 @@ export type DragScratches = {
  *      that frame, not the frame's logical pose.
  *   2. The InstancedMesh2 child can be remounted (e.g. when LoD switches
  *      reconstruct it), invalidating any stashed reference.
- *   3. ``getMatrixAt`` does no bounds-check — past-end reads silently
+ *   3. ``getMatrixAt`` does no bounds-check -- past-end reads silently
  *      return whatever was last written there. */
 export function readBatchedInstanceLocalMatrix(
   message: BatchedSceneNodeMessage,
@@ -220,7 +244,7 @@ export function readBatchedInstanceLocalMatrix(
  *
  * For a non-batched node, the target is ``targetObj`` (the scene-node
  * Group) and its ``matrixWorld`` already includes the full ancestor
- * chain — including the ``""`` root node's frame-conversion rotation.
+ * chain -- including the ``""`` root node's frame-conversion rotation.
  *
  * For a batched node, the per-instance transform is read from the scene
  * store via ``readBatchedInstanceLocalMatrix``. The full world matrix

@@ -1257,15 +1257,39 @@ export interface ScenePointerMessage {
   ray_origin: [number, number, number] | null;
   ray_direction: [number, number, number] | null;
   screen_pos: [number, number][];
+  modifier:
+    | "cmd/ctrl"
+    | "alt"
+    | "shift"
+    | "cmd/ctrl+alt"
+    | "cmd/ctrl+shift"
+    | "alt+shift"
+    | "cmd/ctrl+alt+shift"
+    | null;
 }
-/** Message to enable/disable scene click events.
+/** Set the modifier-filter set for a scene pointer ``event_type``.
+ *
+ * An empty ``modifiers`` tuple disables all callbacks for that
+ * ``event_type``. A non-empty tuple enables them, and the client uses
+ * the filter list to gate gesture engagement: a pointerdown whose
+ * held-modifier state doesn't match any filter is treated as if no
+ * callback were registered (no rectangle drawn, no message sent).
  *
  * (automatically generated)
  */
 export interface ScenePointerEnableMessage {
   type: "ScenePointerEnableMessage";
-  enable: boolean;
   event_type: "click" | "rect-select";
+  modifiers: (
+    | "cmd/ctrl"
+    | "alt"
+    | "shift"
+    | "cmd/ctrl+alt"
+    | "cmd/ctrl+shift"
+    | "alt+shift"
+    | "cmd/ctrl+alt+shift"
+    | null
+  )[];
 }
 /** Fog message.
  *
@@ -1508,6 +1532,15 @@ export interface SceneNodeClickMessage {
   ray_origin: [number, number, number];
   ray_direction: [number, number, number];
   screen_pos: [number, number];
+  modifier:
+    | "cmd/ctrl"
+    | "alt"
+    | "shift"
+    | "cmd/ctrl+alt"
+    | "cmd/ctrl+shift"
+    | "alt+shift"
+    | "cmd/ctrl+alt+shift"
+    | null;
 }
 /** Client -> server message for a scene-node drag (start/update/end).
  *
@@ -1528,10 +1561,15 @@ export interface SceneNodeDragMessage {
   end_position: [number, number, number];
   end_screen_pos: [number, number];
   button: "left" | "middle" | "right";
-  ctrl: boolean;
-  meta: boolean;
-  shift: boolean;
-  alt: boolean;
+  modifier:
+    | "cmd/ctrl"
+    | "alt"
+    | "shift"
+    | "cmd/ctrl+alt"
+    | "cmd/ctrl+shift"
+    | "alt+shift"
+    | "cmd/ctrl+alt+shift"
+    | null;
 }
 /** Reset GUI.
  *
