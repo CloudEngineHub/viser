@@ -28,13 +28,31 @@ def _run_coro(coro: Coroutine[Any, Any, Any]) -> Any:
 
     Some test fixtures (e.g. pytest-playwright's sync API) leave a running
     event loop attached to the main thread, which breaks ``asyncio.run``
-    when these unit tests run in the same process.
+    -- and even ``loop.run_until_complete`` -- when these unit tests run in
+    the same process. ``run_until_complete`` checks ``_get_running_loop()``
+    on the calling thread, so we run the loop on a worker thread to bypass
+    that check.
     """
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
+    import threading
+
+    result: list[Any] = []
+    error: list[BaseException] = []
+
+    def _target() -> None:
+        loop = asyncio.new_event_loop()
+        try:
+            result.append(loop.run_until_complete(coro))
+        except BaseException as e:
+            error.append(e)
+        finally:
+            loop.close()
+
+    t = threading.Thread(target=_target)
+    t.start()
+    t.join()
+    if error:
+        raise error[0]
+    return result[0]
 
 
 def _wait_until(
