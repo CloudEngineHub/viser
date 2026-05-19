@@ -314,6 +314,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../examples/scene/set_up_direction/">Set up direction</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../examples/scene/gaussian_splats/">Gaussian splats</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../examples/scene/fog/">Distance fog</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/scene/arrows/">Arrow visualization</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../examples/gui/">GUI Controls</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of GUI Controls</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
@@ -327,6 +328,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../examples/gui/plotly_integration/">Plotly integration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../examples/gui/uplot/">uPlot integration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../examples/gui/plots_as_images/">Plots as images</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/gui/commands/">Commands</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../examples/interaction/">User Interaction</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><div class="visually-hidden">Toggle navigation of User Interaction</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
@@ -336,6 +338,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../examples/interaction/camera_poses/">Camera pose tracking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../examples/interaction/camera_commands/">Programmatic camera control</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../examples/interaction/gui_in_scene/">3D GUI elements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/interaction/scene_node_drag/">Scene-node drag events with rigid-body physics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/interaction/batched_scene_node_drag/">Drag events on batched scene nodes</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../examples/demos/">Demos</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of Demos</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
@@ -726,8 +730,6 @@ should have unique names. This argument is optional currently, but will be
 required in the future.</p></li>
 <li><p><strong>http_server_root</strong> – Path to root for HTTP server.</p></li>
 <li><p><strong>verbose</strong> – Toggle for print messages.</p></li>
-<li><p><strong>client_api_version</strong> – Flag for backwards compatibility. 0 sends individual
-messages. 1 sends windowed messages.</p></li>
 </ul>
 </dd>
 </dl>
@@ -911,13 +913,33 @@ serialized and can be used for playback.</p>
 send synchronization information to other clients.</p>
 </dd></dl>
 
+<dl class="py attribute">
+<dt class="sig sig-object py" id="viser.infra.Message.entity_type">
+<span class="sig-name descname"><span class="pre">entity_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.ClassVar" title="(in Python v3.14)"><span class="pre">ClassVar</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#viser.infra.Message.entity_type" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="viser.infra.Message.lifecycle_phase">
+<span class="sig-name descname"><span class="pre">lifecycle_phase</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.ClassVar" title="(in Python v3.14)"><span class="pre">ClassVar</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#viser.infra.Message.lifecycle_phase" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="viser.infra.Message.entity_id_field">
+<span class="sig-name descname"><span class="pre">entity_id_field</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.ClassVar" title="(in Python v3.14)"><span class="pre">ClassVar</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#viser.infra.Message.entity_id_field" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="viser.infra.Message.include_in_scene_serialization">
+<span class="sig-name descname"><span class="pre">include_in_scene_serialization</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.ClassVar" title="(in Python v3.14)"><span class="pre">ClassVar</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#viser.infra.Message.include_in_scene_serialization" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="viser.infra.Message.as_serializable_dict">
 <span class="sig-name descname"><span class="pre">as_serializable_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">binary_buffers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#memoryview" title="(in Python v3.14)"><span class="pre">memoryview</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../../_modules/viser/infra/_messages/#Message.as_serializable_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#viser.infra.Message.as_serializable_dict" title="Link to this definition">¶</a></dt>
 <dd><p>Convert a Python Message object into a serializable dict.</p>
 <p>If <code class="docutils literal notranslate"><span class="pre">binary_buffers</span></code> is provided, numpy arrays are extracted into it
 and replaced with tagged placeholder dicts for the hybrid wire format.
-Otherwise, arrays are inlined as memoryviews (used by API v0).</p>
+Otherwise, arrays are inlined as memoryviews in the returned dict.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>binary_buffers</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#memoryview" title="(in Python v3.14)"><em>memoryview</em></a><em>] </em><em>| </em><em>None</em>)</p>
@@ -967,6 +989,18 @@ should only keep the latest message.</p>
 </dl>
 </dd></dl>
 
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="viser.infra.EditorHidden">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">viser.infra.</span></span><span class="sig-name descname"><span class="pre">EditorHidden</span></span><a class="reference internal" href="../../../_modules/viser/infra/_typescript_interface_gen/#EditorHidden"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#viser.infra.EditorHidden" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Use with <code class="docutils literal notranslate"><span class="pre">typing.Annotated[]</span></code> to hide a scene-node prop from the
+interactive props editor in the client. The field is still present in
+the TS interface and on the wire; it just isn’t shown as an editable
+row. Use for props coupled to other fields that can’t be edited in
+isolation (e.g. <code class="docutils literal notranslate"><span class="pre">PointCloud.precision</span></code> constrains the dtype of
+<code class="docutils literal notranslate"><span class="pre">points</span></code>).</p>
 </dd></dl>
 
 <dl class="py class">
@@ -1103,12 +1137,17 @@ TypeScript annotation corresponding to a dataclass field.</p>
 </li>
 <li><a class="reference internal" href="#viser.infra.Message"><code class="docutils literal notranslate"><span class="pre">Message</span></code></a><ul>
 <li><a class="reference internal" href="#viser.infra.Message.excluded_self_client"><code class="docutils literal notranslate"><span class="pre">Message.excluded_self_client</span></code></a></li>
+<li><a class="reference internal" href="#viser.infra.Message.entity_type"><code class="docutils literal notranslate"><span class="pre">Message.entity_type</span></code></a></li>
+<li><a class="reference internal" href="#viser.infra.Message.lifecycle_phase"><code class="docutils literal notranslate"><span class="pre">Message.lifecycle_phase</span></code></a></li>
+<li><a class="reference internal" href="#viser.infra.Message.entity_id_field"><code class="docutils literal notranslate"><span class="pre">Message.entity_id_field</span></code></a></li>
+<li><a class="reference internal" href="#viser.infra.Message.include_in_scene_serialization"><code class="docutils literal notranslate"><span class="pre">Message.include_in_scene_serialization</span></code></a></li>
 <li><a class="reference internal" href="#viser.infra.Message.as_serializable_dict"><code class="docutils literal notranslate"><span class="pre">Message.as_serializable_dict()</span></code></a></li>
 <li><a class="reference internal" href="#viser.infra.Message.deserialize"><code class="docutils literal notranslate"><span class="pre">Message.deserialize()</span></code></a></li>
 <li><a class="reference internal" href="#viser.infra.Message.get_subclasses"><code class="docutils literal notranslate"><span class="pre">Message.get_subclasses()</span></code></a></li>
 <li><a class="reference internal" href="#viser.infra.Message.redundancy_key"><code class="docutils literal notranslate"><span class="pre">Message.redundancy_key()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#viser.infra.EditorHidden"><code class="docutils literal notranslate"><span class="pre">EditorHidden</span></code></a></li>
 <li><a class="reference internal" href="#viser.infra.TypeScriptAnnotationOverride"><code class="docutils literal notranslate"><span class="pre">TypeScriptAnnotationOverride</span></code></a><ul>
 <li><a class="reference internal" href="#viser.infra.TypeScriptAnnotationOverride.annotation"><code class="docutils literal notranslate"><span class="pre">TypeScriptAnnotationOverride.annotation</span></code></a></li>
 </ul>

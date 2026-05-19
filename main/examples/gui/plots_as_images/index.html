@@ -12,7 +12,7 @@
         gtag('js', new Date());
         gtag('config', 'G-RRGY51J5ZH');
     </script>
-    <link rel="index" title="Index" href="../../../genindex/" /><link rel="search" title="Search" href="../../../search/" /><link rel="next" title="User Interaction" href="../../interaction/" /><link rel="prev" title="uPlot integration" href="../uplot/" />
+    <link rel="index" title="Index" href="../../../genindex/" /><link rel="search" title="Search" href="../../../search/" /><link rel="next" title="Commands" href="../commands/" /><link rel="prev" title="uPlot integration" href="../uplot/" />
 
     <!-- Generated with Sphinx 8.0.2 and Furo 2024.08.06 -->
         <title>Plots as images - viser</title>
@@ -314,6 +314,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../scene/set_up_direction/">Set up direction</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../scene/gaussian_splats/">Gaussian splats</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../scene/fog/">Distance fog</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../scene/arrows/">Arrow visualization</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current has-children"><a class="reference internal" href="../">GUI Controls</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of GUI Controls</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
@@ -327,6 +328,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../plotly_integration/">Plotly integration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../uplot/">uPlot integration</a></li>
 <li class="toctree-l2 current current-page"><a class="current reference internal" href="#">Plots as images</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../commands/">Commands</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../interaction/">User Interaction</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><div class="visually-hidden">Toggle navigation of User Interaction</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
@@ -336,6 +338,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../../interaction/camera_poses/">Camera pose tracking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../interaction/camera_commands/">Programmatic camera control</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../interaction/gui_in_scene/">3D GUI elements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../interaction/scene_node_drag/">Scene-node drag events with rigid-body physics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../interaction/batched_scene_node_drag/">Drag events on batched scene nodes</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../demos/">Demos</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of Demos</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
@@ -493,7 +497,7 @@
 <span class="linenos"> 50</span>    <span class="n">left_pad</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">y_text_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="mf">1.5</span><span class="p">)</span> <span class="o">+</span> <span class="n">extra_padding</span>  <span class="c1"># Space for y-axis labels</span>
 <span class="linenos"> 51</span>    <span class="n">right_pad</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">10</span> <span class="o">*</span> <span class="n">font_scale</span><span class="p">)</span> <span class="o">+</span> <span class="n">extra_padding</span>
 <span class="linenos"> 52</span>
-<span class="linenos"> 53</span>    <span class="c1"># Calculate top padding, accounting for title if present</span>
+<span class="linenos"> 53</span>    <span class="c1"># Calculate top padding, accounting for title if present.</span>
 <span class="linenos"> 54</span>    <span class="n">top_pad</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">10</span> <span class="o">*</span> <span class="n">font_scale</span><span class="p">)</span> <span class="o">+</span> <span class="n">extra_padding</span>
 <span class="linenos"> 55</span>    <span class="n">title_font_scale</span> <span class="o">=</span> <span class="n">font_scale</span> <span class="o">*</span> <span class="mf">1.5</span>  <span class="c1"># Make title slightly larger</span>
 <span class="linenos"> 56</span>    <span class="k">if</span> <span class="n">title</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -509,11 +513,11 @@
 <span class="linenos"> 66</span>    <span class="n">plot_height</span> <span class="o">=</span> <span class="n">height</span> <span class="o">-</span> <span class="n">top_pad</span> <span class="o">-</span> <span class="n">bottom_pad</span>
 <span class="linenos"> 67</span>    <span class="k">assert</span> <span class="n">plot_width</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">plot_height</span> <span class="o">&gt;</span> <span class="mi">0</span>
 <span class="linenos"> 68</span>
-<span class="linenos"> 69</span>    <span class="c1"># Create image with specified background color</span>
+<span class="linenos"> 69</span>    <span class="c1"># Create image with specified background color.</span>
 <span class="linenos"> 70</span>    <span class="n">img</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">total_height</span><span class="p">,</span> <span class="n">total_width</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
 <span class="linenos"> 71</span>    <span class="n">img</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">background_color</span>
 <span class="linenos"> 72</span>
-<span class="linenos"> 73</span>    <span class="c1"># Create plot area with specified color</span>
+<span class="linenos"> 73</span>    <span class="c1"># Create plot area with specified color.</span>
 <span class="linenos"> 74</span>    <span class="n">plot_area</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">plot_height</span><span class="p">,</span> <span class="n">plot_width</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
 <span class="linenos"> 75</span>    <span class="n">plot_area</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">plot_area_color</span>
 <span class="linenos"> 76</span>    <span class="n">img</span><span class="p">[</span><span class="n">top_pad</span> <span class="p">:</span> <span class="n">top_pad</span> <span class="o">+</span> <span class="n">plot_height</span><span class="p">,</span> <span class="n">left_pad</span> <span class="p">:</span> <span class="n">left_pad</span> <span class="o">+</span> <span class="n">plot_width</span><span class="p">]</span> <span class="o">=</span> <span class="n">plot_area</span>
@@ -555,7 +559,7 @@
 <span class="linenos">112</span>        <span class="n">img</span><span class="p">,</span> <span class="p">[</span><span class="n">pts</span><span class="p">],</span> <span class="kc">False</span><span class="p">,</span> <span class="n">line_color</span><span class="p">,</span> <span class="n">thickness</span><span class="o">=</span><span class="n">line_thickness</span><span class="p">,</span> <span class="n">lineType</span><span class="o">=</span><span class="n">cv2</span><span class="o">.</span><span class="n">LINE_AA</span>
 <span class="linenos">113</span>    <span class="p">)</span>
 <span class="linenos">114</span>
-<span class="linenos">115</span>    <span class="c1"># Draw title if specified</span>
+<span class="linenos">115</span>    <span class="c1"># Draw title if specified.</span>
 <span class="linenos">116</span>    <span class="k">if</span> <span class="n">title</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 <span class="linenos">117</span>        <span class="n">title_size</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">getTextSize</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">font</span><span class="p">,</span> <span class="n">title_font_scale</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
 <span class="linenos">118</span>        <span class="n">title_x</span> <span class="o">=</span> <span class="n">left_pad</span> <span class="o">+</span> <span class="p">(</span><span class="n">plot_width</span> <span class="o">-</span> <span class="n">title_size</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">//</span> <span class="mi">2</span>
@@ -713,12 +717,12 @@
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="../../interaction/">
+          <a class="next-page" href="../commands/">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">User Interaction</div>
+                <div class="title">Commands</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>

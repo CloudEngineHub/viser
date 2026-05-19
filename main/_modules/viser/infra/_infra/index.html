@@ -313,6 +313,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../../examples/scene/set_up_direction/">Set up direction</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../examples/scene/gaussian_splats/">Gaussian splats</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../examples/scene/fog/">Distance fog</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/scene/arrows/">Arrow visualization</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../examples/gui/">GUI Controls</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of GUI Controls</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
@@ -326,6 +327,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../../examples/gui/plotly_integration/">Plotly integration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../examples/gui/uplot/">uPlot integration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../examples/gui/plots_as_images/">Plots as images</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/gui/commands/">Commands</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../examples/interaction/">User Interaction</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><div class="visually-hidden">Toggle navigation of User Interaction</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
@@ -335,6 +337,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../../examples/interaction/camera_poses/">Camera pose tracking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../examples/interaction/camera_commands/">Programmatic camera control</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../examples/interaction/gui_in_scene/">3D GUI elements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/interaction/scene_node_drag/">Scene-node drag events with rigid-body physics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/interaction/batched_scene_node_drag/">Drag events on batched scene nodes</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../examples/demos/">Demos</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of Demos</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
@@ -440,19 +444,20 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Coroutine</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">NewType</span><span class="p">,</span> <span class="n">TypeVar</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">urllib.parse</span><span class="w"> </span><span class="kn">import</span> <span class="n">unquote</span> <span class="k">as</span> <span class="n">_url_unquote</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">msgspec.msgpack</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">websockets.asyncio.server</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">websockets.datastructures</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">websockets.exceptions</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">zstandard</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">assert_never</span><span class="p">,</span> <span class="n">override</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">websockets</span><span class="w"> </span><span class="kn">import</span> <span class="n">Headers</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">websockets.asyncio.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">ServerConnection</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">websockets.http11</span><span class="w"> </span><span class="kn">import</span> <span class="n">Request</span><span class="p">,</span> <span class="n">Response</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">websockets.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Subprotocol</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">viser</span>  <span class="c1"># Import for version checking</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">viser</span>  <span class="c1"># Import for version checking.</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">._async_message_buffer</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncMessageBuffer</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">._messages</span><span class="w"> </span><span class="kn">import</span> <span class="n">Message</span>
@@ -785,8 +790,6 @@
 <span class="sd">            required in the future.</span>
 <span class="sd">        http_server_root: Path to root for HTTP server.</span>
 <span class="sd">        verbose: Toggle for print messages.</span>
-<span class="sd">        client_api_version: Flag for backwards compatibility. 0 sends individual</span>
-<span class="sd">            messages. 1 sends windowed messages.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -796,7 +799,6 @@
         <span class="n">message_class</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">Message</span><span class="p">]</span> <span class="o">=</span> <span class="n">Message</span><span class="p">,</span>
         <span class="n">http_server_root</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="n">client_api_version</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
@@ -813,7 +815,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_message_class</span> <span class="o">=</span> <span class="n">message_class</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_http_server_root</span> <span class="o">=</span> <span class="n">http_server_root</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_verbose</span> <span class="o">=</span> <span class="n">verbose</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_client_api_version</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">client_api_version</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_background_event_loop</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">AbstractEventLoop</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_stop_event</span><span class="p">:</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Event</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
@@ -955,25 +956,24 @@
                 <span class="n">total_connections</span> <span class="o">+=</span> <span class="mi">1</span>
 
             <span class="c1"># Version check to make sure Viser server/client match.</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client_api_version</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="kn">import</span><span class="w"> </span><span class="nn">viser</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">viser</span>
 
-                <span class="c1"># Extract client version from the selected subprotocol.</span>
-                <span class="n">client_version_str</span> <span class="o">=</span> <span class="s2">&quot;unknown&quot;</span>
-                <span class="k">if</span> <span class="n">connection</span><span class="o">.</span><span class="n">subprotocol</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="n">connection</span><span class="o">.</span><span class="n">subprotocol</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;viser-v&quot;</span><span class="p">):</span>
-                        <span class="n">client_version_str</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">subprotocol</span><span class="p">[</span><span class="mi">7</span><span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="c1"># Extract client version from the selected subprotocol.</span>
+            <span class="n">client_version_str</span> <span class="o">=</span> <span class="s2">&quot;unknown&quot;</span>
+            <span class="k">if</span> <span class="n">connection</span><span class="o">.</span><span class="n">subprotocol</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">connection</span><span class="o">.</span><span class="n">subprotocol</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;viser-v&quot;</span><span class="p">):</span>
+                    <span class="n">client_version_str</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">subprotocol</span><span class="p">[</span><span class="mi">7</span><span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
 
-                <span class="k">if</span> <span class="n">client_version_str</span> <span class="o">!=</span> <span class="n">viser</span><span class="o">.</span><span class="n">__version__</span><span class="p">:</span>
-                    <span class="n">rich</span><span class="o">.</span><span class="n">print</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;[bold red](viser)[/bold red] Version mismatch - connection rejected. &quot;</span>
-                        <span class="sa">f</span><span class="s2">&quot;Client: &#39;</span><span class="si">{</span><span class="n">client_version_str</span><span class="si">}</span><span class="s2">&#39;, Server: &#39;</span><span class="si">{</span><span class="n">viser</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
-                    <span class="p">)</span>
-                    <span class="k">await</span> <span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">(</span>
-                        <span class="mi">1002</span><span class="p">,</span>
-                        <span class="sa">f</span><span class="s2">&quot;Version mismatch. Client: </span><span class="si">{</span><span class="n">client_version_str</span><span class="si">}</span><span class="s2">, Server: </span><span class="si">{</span><span class="n">viser</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-                    <span class="p">)</span>
-                    <span class="k">return</span>  <span class="c1"># Exit handler to prevent further processing.</span>
+            <span class="k">if</span> <span class="n">client_version_str</span> <span class="o">!=</span> <span class="n">viser</span><span class="o">.</span><span class="n">__version__</span><span class="p">:</span>
+                <span class="n">rich</span><span class="o">.</span><span class="n">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;[bold red](viser)[/bold red] Version mismatch - connection rejected. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Client: &#39;</span><span class="si">{</span><span class="n">client_version_str</span><span class="si">}</span><span class="s2">&#39;, Server: &#39;</span><span class="si">{</span><span class="n">viser</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
+                <span class="p">)</span>
+                <span class="k">await</span> <span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">(</span>
+                    <span class="mi">1002</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">&quot;Version mismatch. Client: </span><span class="si">{</span><span class="n">client_version_str</span><span class="si">}</span><span class="s2">, Server: </span><span class="si">{</span><span class="n">viser</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">return</span>  <span class="c1"># Exit handler to prevent further processing.</span>
 
             <span class="n">client_state</span> <span class="o">=</span> <span class="n">_ClientHandleState</span><span class="p">(</span>
                 <span class="n">AsyncMessageBuffer</span><span class="p">(</span><span class="n">event_loop</span><span class="p">,</span> <span class="n">persistent_messages</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
@@ -1013,13 +1013,11 @@
                         <span class="n">connection</span><span class="p">,</span>
                         <span class="n">client_state</span><span class="o">.</span><span class="n">message_buffer</span><span class="p">,</span>
                         <span class="n">client_id</span><span class="p">,</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">_client_api_version</span><span class="p">,</span>
                     <span class="p">),</span>
                     <span class="n">_message_producer</span><span class="p">(</span>
                         <span class="n">connection</span><span class="p">,</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">_broadcast_buffer</span><span class="p">,</span>
                         <span class="n">client_id</span><span class="p">,</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">_client_api_version</span><span class="p">,</span>
                     <span class="p">),</span>
                     <span class="n">_message_consumer</span><span class="p">(</span><span class="n">connection</span><span class="p">,</span> <span class="n">handle_incoming</span><span class="p">,</span> <span class="n">message_class</span><span class="p">),</span>
                 <span class="p">)</span>
@@ -1084,17 +1082,35 @@
             <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;Upgrade&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;websocket&quot;</span><span class="p">:</span>
                 <span class="k">return</span> <span class="kc">None</span>
 
-            <span class="c1"># Strip out search params, get relative path.</span>
+            <span class="c1"># Strip out search params, get relative path. URL-decode so</span>
+            <span class="c1"># percent-encoded traversal sequences (e.g. ``%2e%2e/``)</span>
+            <span class="c1"># can&#39;t slip past the segment check below; normalize</span>
+            <span class="c1"># backslashes to forward slashes so a Windows-style path</span>
+            <span class="c1"># like ``foo\..\bar`` is also caught on Linux, where</span>
+            <span class="c1"># ``pathlib`` would otherwise treat the whole thing as a</span>
+            <span class="c1"># single literal filename.</span>
             <span class="n">path</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">path</span>
             <span class="n">path</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">&quot;?&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">relpath</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">))</span>
-            <span class="k">if</span> <span class="n">relpath</span> <span class="o">==</span> <span class="s2">&quot;.&quot;</span><span class="p">:</span>
-                <span class="n">relpath</span> <span class="o">=</span> <span class="s2">&quot;index.html&quot;</span>
-            <span class="k">assert</span> <span class="n">http_server_root</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="n">_url_unquote</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;/&quot;</span><span class="p">)</span>
 
-            <span class="n">source_path</span> <span class="o">=</span> <span class="p">(</span><span class="n">http_server_root</span> <span class="o">/</span> <span class="n">relpath</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">source_path</span><span class="o">.</span><span class="n">is_relative_to</span><span class="p">(</span><span class="n">http_server_root</span><span class="o">.</span><span class="n">resolve</span><span class="p">()):</span>
+            <span class="c1"># Reject path traversal by checking URL segments, not by</span>
+            <span class="c1"># comparing resolved paths. Under Bazel/uv runfile trees,</span>
+            <span class="c1"># http_server_root and the files inside it can pass through</span>
+            <span class="c1"># independent symlinks (e.g. uv hardlinks individual files</span>
+            <span class="c1"># from a shared cache), so Path.resolve() places a</span>
+            <span class="c1"># legitimate child outside the resolved root.</span>
+            <span class="c1">#</span>
+            <span class="c1"># Skipping the resolved-path check means we no longer</span>
+            <span class="c1"># validate that symlinks inside http_server_root stay</span>
+            <span class="c1"># within it. That is fine here: http_server_root is set</span>
+            <span class="c1"># by the application, not by user input, so the only</span>
+            <span class="c1"># attacker-controlled component is the URL path.</span>
+            <span class="n">segments</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">and</span> <span class="n">s</span> <span class="o">!=</span> <span class="s2">&quot;.&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">s</span> <span class="o">==</span> <span class="s2">&quot;..&quot;</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">segments</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">http</span><span class="o">.</span><span class="n">HTTPStatus</span><span class="o">.</span><span class="n">NOT_FOUND</span><span class="p">,</span> <span class="s2">&quot;NOT FOUND&quot;</span><span class="p">,</span> <span class="n">Headers</span><span class="p">())</span>
+            <span class="n">relpath</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">segments</span><span class="p">)</span> <span class="k">if</span> <span class="n">segments</span> <span class="k">else</span> <span class="s2">&quot;index.html&quot;</span>
+            <span class="k">assert</span> <span class="n">http_server_root</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="n">source_path</span> <span class="o">=</span> <span class="n">http_server_root</span> <span class="o">/</span> <span class="n">relpath</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">source_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
                 <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">http</span><span class="o">.</span><span class="n">HTTPStatus</span><span class="o">.</span><span class="n">NOT_FOUND</span><span class="p">,</span> <span class="s2">&quot;NOT FOUND&quot;</span><span class="p">,</span> <span class="n">Headers</span><span class="p">())</span>
 
@@ -1193,7 +1209,7 @@
         <span class="n">event_loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="n">start_server</span><span class="p">())</span>
         <span class="n">rich</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s2">&quot;[bold](viser)[/bold] Server stopped&quot;</span><span class="p">)</span>
 
-        <span class="c1"># Clean up the event loop to prevent reference leaks</span>
+        <span class="c1"># Clean up the event loop to prevent reference leaks.</span>
         <span class="n">event_loop</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
         <span class="n">event_loop</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
@@ -1222,9 +1238,28 @@
     <span class="n">websocket</span><span class="p">:</span> <span class="n">ServerConnection</span><span class="p">,</span>
     <span class="n">buffer</span><span class="p">:</span> <span class="n">AsyncMessageBuffer</span><span class="p">,</span>
     <span class="n">client_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">client_api_version</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Infinite loop to broadcast windows of messages from a buffer.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Infinite loop to broadcast windows of messages from a buffer.</span>
+
+<span class="sd">    Wire format (hybrid zstd-compressed msgpack + raw binary buffers):</span>
+<span class="sd">    - Binary arrays (numpy) are extracted from messages and replaced with</span>
+<span class="sd">      tagged placeholder dicts so msgpack.encode() doesn&#39;t walk large arrays.</span>
+<span class="sd">    - Raw binary data is appended uncompressed after the zstd-compressed</span>
+<span class="sd">      msgpack, with 8-byte alignment padding.</span>
+<span class="sd">    - On the JS side, typed array views (Float32Array, etc.) are created</span>
+<span class="sd">      directly into the WebSocket&#39;s ArrayBuffer -- zero-copy for binary data.</span>
+
+<span class="sd">    Binary data is left uncompressed because float/int arrays (point clouds,</span>
+<span class="sd">    meshes) compress poorly, and at 30-60fps the zstd compress+decompress</span>
+<span class="sd">    cost adds up. Zero-copy is more valuable than modest compression.</span>
+
+<span class="sd">    Layout:</span>
+<span class="sd">      [8 bytes] decompressed size of msgpack (little-endian uint64)</span>
+<span class="sd">      [8 bytes] compressed size of msgpack (little-endian uint64)</span>
+<span class="sd">      [N bytes] zstd-compressed msgpack payload</span>
+<span class="sd">      [P bytes] padding to 8-byte alignment</span>
+<span class="sd">      [M bytes] concatenated binary buffers (each 8-byte aligned)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">window_generator</span> <span class="o">=</span> <span class="n">buffer</span><span class="o">.</span><span class="n">window_generator</span><span class="p">(</span><span class="n">client_id</span><span class="p">)</span>
     <span class="n">zstd</span> <span class="o">=</span> <span class="n">zstandard</span><span class="o">.</span><span class="n">ZstdCompressor</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="k">while</span> <span class="ow">not</span> <span class="n">buffer</span><span class="o">.</span><span class="n">done</span><span class="p">:</span>
@@ -1233,60 +1268,26 @@
         <span class="k">except</span> <span class="ne">StopAsyncIteration</span><span class="p">:</span>
             <span class="k">break</span>
 
-        <span class="k">if</span> <span class="n">client_api_version</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="c1"># Hybrid wire format: zstd-compressed msgpack metadata, followed</span>
-            <span class="c1"># by raw (uncompressed) aligned binary buffers.</span>
-            <span class="c1">#</span>
-            <span class="c1"># Binary arrays (numpy) are extracted from messages and replaced</span>
-            <span class="c1"># with tagged placeholder dicts. This makes msgpack.encode() fast</span>
-            <span class="c1"># (it doesn&#39;t walk the large arrays). The raw binary data is</span>
-            <span class="c1"># appended uncompressed after the zstd-compressed msgpack, with</span>
-            <span class="c1"># 8-byte alignment padding.</span>
-            <span class="c1">#</span>
-            <span class="c1"># On the JS side, typed array views (Float32Array, etc.) are</span>
-            <span class="c1"># created directly into the WebSocket&#39;s ArrayBuffer — zero-copy</span>
-            <span class="c1"># for the binary array data. (The msgpack metadata is still</span>
-            <span class="c1"># decompressed and parsed separately.)</span>
-            <span class="c1">#</span>
-            <span class="c1"># Binary data is left uncompressed because:</span>
-            <span class="c1"># - Float/int arrays (point clouds, meshes) compress poorly</span>
-            <span class="c1"># - At 30-60fps, zstd compress+decompress cost adds up</span>
-            <span class="c1"># - Zero-copy is more valuable than modest compression</span>
-            <span class="c1">#</span>
-            <span class="c1"># Wire format:</span>
-            <span class="c1">#   [8 bytes] decompressed size of msgpack (little-endian uint64)</span>
-            <span class="c1">#   [8 bytes] compressed size of msgpack (little-endian uint64)</span>
-            <span class="c1">#   [N bytes] zstd-compressed msgpack payload</span>
-            <span class="c1">#   [P bytes] padding to 8-byte alignment</span>
-            <span class="c1">#   [M bytes] concatenated binary buffers (each 8-byte aligned)</span>
-            <span class="n">binary_buffers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">memoryview</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="n">serialized_messages</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
-                <span class="n">message</span><span class="o">.</span><span class="n">as_serializable_dict</span><span class="p">(</span><span class="n">binary_buffers</span><span class="p">)</span> <span class="k">for</span> <span class="n">message</span> <span class="ow">in</span> <span class="n">outgoing</span>
-            <span class="p">)</span>
-            <span class="n">inner</span> <span class="o">=</span> <span class="n">msgspec</span><span class="o">.</span><span class="n">msgpack</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span>
-                <span class="p">{</span>
-                    <span class="s2">&quot;messages&quot;</span><span class="p">:</span> <span class="n">serialized_messages</span><span class="p">,</span>
-                    <span class="s2">&quot;timestampSec&quot;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">(),</span>
-                    <span class="s2">&quot;binaryBufferLengths&quot;</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">nbytes</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">binary_buffers</span><span class="p">),</span>
-                <span class="p">}</span>
-            <span class="p">)</span>
-            <span class="n">compressed</span> <span class="o">=</span> <span class="n">zstd</span><span class="o">.</span><span class="n">compress</span><span class="p">(</span><span class="n">inner</span><span class="p">)</span>
+        <span class="n">binary_buffers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">memoryview</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">serialized_messages</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">message</span><span class="o">.</span><span class="n">as_serializable_dict</span><span class="p">(</span><span class="n">binary_buffers</span><span class="p">)</span> <span class="k">for</span> <span class="n">message</span> <span class="ow">in</span> <span class="n">outgoing</span>
+        <span class="p">)</span>
+        <span class="n">inner</span> <span class="o">=</span> <span class="n">msgspec</span><span class="o">.</span><span class="n">msgpack</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;messages&quot;</span><span class="p">:</span> <span class="n">serialized_messages</span><span class="p">,</span>
+                <span class="s2">&quot;timestampSec&quot;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">(),</span>
+                <span class="s2">&quot;binaryBufferLengths&quot;</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">nbytes</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">binary_buffers</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="n">compressed</span> <span class="o">=</span> <span class="n">zstd</span><span class="o">.</span><span class="n">compress</span><span class="p">(</span><span class="n">inner</span><span class="p">)</span>
 
-            <span class="c1"># Build the wire payload: headers + compressed msgpack + raw binary.</span>
-            <span class="n">parts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">bytes</span> <span class="o">|</span> <span class="nb">memoryview</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="nb">len</span><span class="p">(</span><span class="n">inner</span><span class="p">)</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="s2">&quot;little&quot;</span><span class="p">),</span>
-                <span class="nb">len</span><span class="p">(</span><span class="n">compressed</span><span class="p">)</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="s2">&quot;little&quot;</span><span class="p">),</span>
-                <span class="n">compressed</span><span class="p">,</span>
-            <span class="p">]</span>
-            <span class="n">_append_aligned_buffers</span><span class="p">(</span><span class="n">parts</span><span class="p">,</span> <span class="n">binary_buffers</span><span class="p">,</span> <span class="mi">16</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">compressed</span><span class="p">))</span>
-            <span class="k">await</span> <span class="n">websocket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">))</span>
-        <span class="k">elif</span> <span class="n">client_api_version</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">outgoing</span><span class="p">:</span>
-                <span class="n">serialized</span> <span class="o">=</span> <span class="n">msgspec</span><span class="o">.</span><span class="n">msgpack</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">as_serializable_dict</span><span class="p">())</span>
-                <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">serialized</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">)</span>
-                <span class="k">await</span> <span class="n">websocket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">serialized</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">assert_never</span><span class="p">(</span><span class="n">client_api_version</span><span class="p">)</span>
+        <span class="n">parts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">bytes</span> <span class="o">|</span> <span class="nb">memoryview</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="nb">len</span><span class="p">(</span><span class="n">inner</span><span class="p">)</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="s2">&quot;little&quot;</span><span class="p">),</span>
+            <span class="nb">len</span><span class="p">(</span><span class="n">compressed</span><span class="p">)</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="s2">&quot;little&quot;</span><span class="p">),</span>
+            <span class="n">compressed</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="n">_append_aligned_buffers</span><span class="p">(</span><span class="n">parts</span><span class="p">,</span> <span class="n">binary_buffers</span><span class="p">,</span> <span class="mi">16</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">compressed</span><span class="p">))</span>
+        <span class="k">await</span> <span class="n">websocket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">))</span>
 
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_message_consumer</span><span class="p">(</span>
