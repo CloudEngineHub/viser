@@ -37,6 +37,7 @@ import { isFormElement } from "./utils/isFormElement";
 import { ndcFromPointerXy, opencvXyFromPointerXy } from "./utils/pointerCoords";
 import { ViewerContext, ViewerContextContents } from "./ViewerContext";
 import ControlPanel from "./ControlPanel/ControlPanel";
+import { DockContext, DockState } from "./ControlPanel/DockContext";
 import { useGuiState } from "./ControlPanel/GuiState";
 import { searchParamKey } from "./SearchParamsUtils";
 import { WebsocketMessageProducer } from "./WebsocketInterface";
@@ -329,6 +330,22 @@ function ViewerContents({ children }: { children: React.ReactNode }) {
   const showStats = viewer.useDevSettings((state) => state.showStats);
   const { messageSource } = viewer;
 
+  // Dock state for the floating control panel. `side: null` means the panel is
+  // freely floating (the default); a non-null side reserves space for it by
+  // insetting the canvas. Shared with FloatingPanel via DockContext.
+  const [dock, setDock] = React.useState<DockState>({
+    side: null,
+    width: "20em",
+  });
+  // Panel expanded state, lifted so the canvas only reserves space for a docked
+  // panel while it's expanded (a collapsed docked panel shrinks to its handle).
+  const [panelExpanded, setPanelExpanded] = React.useState(true);
+  const togglePanelExpanded = React.useCallback(
+    () => setPanelExpanded((value) => !value),
+    [],
+  );
+  const dockReservesSpace = dock.side !== null && panelExpanded;
+
   // Create Mantine theme with custom colors if provided.
   const mantineTheme = useMemo(
     () =>
@@ -372,42 +389,62 @@ function ViewerContents({ children }: { children: React.ReactNode }) {
         <ViserModal />
         <CommandPalette />
         {/* App layout */}
-        <Box
-          style={{
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            position: "relative",
-            flexDirection: "column",
+        <DockContext.Provider
+          value={{
+            dock,
+            setDock,
+            expanded: panelExpanded,
+            toggleExpanded: togglePanelExpanded,
           }}
         >
-          <Titlebar />
           <Box
             style={{
               width: "100%",
-              position: "relative",
-              flexGrow: 1,
-              overflow: "hidden",
+              height: "100%",
               display: "flex",
+              position: "relative",
+              flexDirection: "column",
             }}
           >
-            <NotificationsPanel />
+            <Titlebar />
             <Box
-              style={(theme) => ({
-                backgroundColor: darkMode ? theme.colors.dark[9] : "#fff",
+              style={{
+                width: "100%",
+                position: "relative",
                 flexGrow: 1,
                 overflow: "hidden",
-                height: "100%",
-              })}
+                display: "flex",
+              }}
             >
-              {canvases}
-              {showLogo && messageSource === "websocket" && <ViserLogo />}
+              <NotificationsPanel />
+              <Box
+                style={(theme) => ({
+                  backgroundColor: darkMode ? theme.colors.dark[9] : "#fff",
+                  overflow: "hidden",
+                  // When the panel is docked and expanded, take the canvas out
+                  // of flex flow and inset the docked edge to reserve space for
+                  // it. Otherwise (floating, or docked-but-collapsed) fill the
+                  // row as before.
+                  ...(!dockReservesSpace
+                    ? { flexGrow: 1, height: "100%" }
+                    : {
+                        position: "absolute",
+                        top: 0,
+                        bottom: 0,
+                        left: dock.side === "left" ? dock.width : 0,
+                        right: dock.side === "right" ? dock.width : 0,
+                      }),
+                })}
+              >
+                {canvases}
+                {showLogo && messageSource === "websocket" && <ViserLogo />}
+              </Box>
+              {messageSource === "websocket" && (
+                <ControlPanel control_layout={controlLayout} />
+              )}
             </Box>
-            {messageSource === "websocket" && (
-              <ControlPanel control_layout={controlLayout} />
-            )}
           </Box>
-        </Box>
+        </DockContext.Provider>
         {showStats && <Stats className="stats-panel" />}
       </MantineProvider>
     </>
@@ -427,6 +464,12 @@ function ColorSchemeSetter(props: { darkMode: boolean }) {
  * Notifications panel with fixed styling.
  */
 function NotificationsPanel() {
+  const { dock, expanded } = React.useContext(DockContext);
+  // Notifications sit at the top-left. When the control panel is docked on the
+  // left (and expanded, so it actually reserves that column), shift them right
+  // by the panel's width so they appear over the canvas instead of covering the
+  // GUI. A right/none dock leaves the top-left clear, so no offset is needed.
+  const dockedLeft = dock.side === "left" && expanded;
   return (
     <Notifications
       position="top-left"
@@ -438,7 +481,7 @@ function NotificationsPanel() {
           boxShadow: "0.1em 0 1em 0 rgba(0,0,0,0.1) !important",
           position: "absolute",
           top: "1em",
-          left: "1em",
+          left: dockedLeft ? `calc(${dock.width} + 1em)` : "1em",
           pointerEvents: "none",
         },
         notification: {
