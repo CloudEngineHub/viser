@@ -18,6 +18,7 @@ from typing import (
     Literal,
     Tuple,
     TypeVar,
+    cast,
     overload,
 )
 
@@ -186,11 +187,25 @@ class _GuiInputHandle(
         # For the documentation's sake, we'll be manually adding ::attribute directives below.
         return self._impl.value
 
+    def _coerce_assigned_value(self, value: T | np.ndarray) -> T | np.ndarray:
+        """Hook for input-type-specific coercion of an assigned value. The base
+        is identity; rgb/rgba handles override this to normalize colors."""
+        return value
+
     @value.setter
     def value(self, value: T | np.ndarray) -> None:
+        value = self._coerce_assigned_value(value)
         if isinstance(value, np.ndarray):
             assert len(value.shape) <= 1, f"{value.shape} should be at most 1D!"
-            value = tuple(map(float, value))  # type: ignore
+            # Preserve each element's expected Python type -- float for vectors,
+            # int for colors. A blanket `float(...)` would turn an int tuple into
+            # floats, and the `tuple(...)` cast below does not restore types.
+            elems = value.tolist()
+            current = self._impl.value
+            if isinstance(current, tuple) and len(current) == len(elems):
+                value = tuple(type(c)(e) for c, e in zip(current, elems))  # type: ignore
+            else:
+                value = tuple(elems)  # type: ignore
 
         # Convert to internal type early so we can compare.
         value = type(self._impl.value)(value)  # type: ignore
@@ -328,6 +343,23 @@ class GuiMultiSliderHandle(
     """
 
 
+def _colors_to_int_tuple(value: Any) -> tuple[int, ...]:
+    """Coerce an RGB/RGBA color to an int tuple in [0, 255].
+
+    Integer channels are taken as absolute [0, 255]; float channels are
+    interpreted as [0, 1] and scaled (the matplotlib convention), so ``1.0`` ->
+    255 (white) but ``1`` -> 1. The result is clamped to [0, 255] -- matching
+    ``colors_to_uint8`` -- so out-of-range inputs (e.g. a float ``255.0`` or a
+    negative value) degrade gracefully instead of producing a wild value.
+    Generalized to any channel count (RGB and RGBA)."""
+    if isinstance(value, np.ndarray):
+        assert value.ndim == 1, f"Expected a 1D color, got shape {value.shape}."
+    return tuple(
+        max(0, min(255, int(v) if np.issubdtype(type(v), np.integer) else int(v * 255)))
+        for v in value
+    )
+
+
 class GuiRgbHandle(GuiInputHandle[Tuple[int, int, int]], GuiRgbProps):
     """Handle for RGB color inputs.
 
@@ -336,6 +368,13 @@ class GuiRgbHandle(GuiInputHandle[Tuple[int, int, int]], GuiRgbProps):
 
        Value of the input. Synchronized automatically when assigned.
     """
+
+    @override
+    def _coerce_assigned_value(
+        self, value: Tuple[int, int, int] | np.ndarray
+    ) -> Tuple[int, int, int]:
+        # Float channels are [0, 1] (scaled to [0, 255]); int channels absolute.
+        return cast(Tuple[int, int, int], _colors_to_int_tuple(value))
 
 
 class GuiRgbaHandle(GuiInputHandle[Tuple[int, int, int, int]], GuiRgbaProps):
@@ -346,6 +385,13 @@ class GuiRgbaHandle(GuiInputHandle[Tuple[int, int, int, int]], GuiRgbaProps):
 
        Value of the input. Synchronized automatically when assigned.
     """
+
+    @override
+    def _coerce_assigned_value(
+        self, value: Tuple[int, int, int, int] | np.ndarray
+    ) -> Tuple[int, int, int, int]:
+        # Float channels are [0, 1] (scaled to [0, 255]); int channels absolute.
+        return cast(Tuple[int, int, int, int], _colors_to_int_tuple(value))
 
 
 class GuiVector2Handle(GuiInputHandle[Tuple[float, float]], GuiVector2Props):
@@ -655,11 +701,18 @@ class GuiTabGroupHandle(_GuiHandle[None], GuiTabGroupProps):
                 stacklevel=2,
             )
             return
-        self._impl.removed = True
 
-        # Remove tabs, then self.
+        # Remove tabs first. Each tab.remove() writes back to this group's
+        # tab-list props (_tab_labels / _tab_icons_html / _tab_container_ids), so
+        # we must NOT mark the group removed until afterwards -- otherwise the
+        # removed-handle guard in props_setattr raises on those writes, leaving
+        # the group half-removed (still in its parent's _children with
+        # removed=True). A subsequent gui.reset() then spins forever, since its
+        # `while root._children: child.remove()` loop hits that group whose
+        # remove() now no-ops via the already-removed guard.
         for tab in tuple(self._tab_handles):
             tab.remove()
+        self._impl.removed = True
         gui_api = self._impl.gui_api
         gui_api._websock_interface.queue_message(GuiRemoveMessage(self._impl.uuid))
         parent = gui_api._container_handle_from_uuid[self._impl.parent_container_id]
@@ -740,6 +793,12 @@ class GuiTabHandle:
         self._parent._tab_handles = (
             self._parent._tab_handles[:found_index]
             + self._parent._tab_handles[found_index + 1 :]
+        )
+        # Keep the container-id list in sync with the handles. Otherwise the
+        # client receives mismatched `_tab_labels` / `_tab_container_ids`
+        # lengths and renders a stale (orphaned) tab panel.
+        self._parent._tab_container_ids = tuple(
+            handle._id for handle in self._parent._tab_handles
         )
 
         for child in tuple(self._children.values()):

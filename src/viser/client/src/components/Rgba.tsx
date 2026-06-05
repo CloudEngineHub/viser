@@ -17,14 +17,15 @@ export default function RgbaComponent({
   // will be an RGBA array with all values in range [0, 255].
   const [localValue, setLocalValue] = React.useState(rgbaToString(value));
 
-  // Update local value when prop value changes.
+  // Sync local text from the prop only when `value` changes, not on every
+  // `localValue` keystroke -- otherwise mid-edit text resets. Matches Rgb.tsx.
   React.useEffect(() => {
     // Only update if the parsed local value differs from the new prop value.
     const parsedLocal = parseToRgba(localValue);
     if (!parsedLocal || !rgbaEqual(parsedLocal, value)) {
       setLocalValue(rgbaToString(value));
     }
-  }, [value, localValue]);
+  }, [value]);
 
   if (!visible) return null;
 
@@ -59,6 +60,9 @@ export default function RgbaComponent({
             if (parsed) {
               setValue(uuid, parsed);
             }
+            // Blur to close the color-picker popover on Enter (matches the
+            // server-address input in ServerControls.tsx).
+            e.currentTarget.blur();
           }
         }}
         onBlur={() => {

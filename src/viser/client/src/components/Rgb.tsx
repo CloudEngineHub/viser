@@ -58,6 +58,9 @@ export default function RgbComponent({
             if (parsed) {
               setValue(uuid, parsed);
             }
+            // Blur to close the color-picker popover on Enter (matches the
+            // server-address input in ServerControls.tsx).
+            e.currentTarget.blur();
           }
         }}
         onBlur={() => {

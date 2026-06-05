@@ -68,6 +68,7 @@ from ._gui_handles import (
     GuiVector3Handle,
     SupportsRemoveProtocol,
     UploadedFile,
+    _colors_to_int_tuple,
     _CommandHandleState,
     _GuiButtonHandleState,
     _GuiHandleState,
@@ -192,8 +193,11 @@ class GuiApi:
     Used by both our global server object, for sharing the same GUI elements
     with all clients, and by individual client handles."""
 
-    _target_container_from_thread_id: dict[int, str] = {}
-    """ID of container to put GUI elements into."""
+    _target_container_from_thread_id: dict[int, str]
+    """ID of container to put GUI elements into. Per-instance (NOT a shared
+    class attribute) -- otherwise a thread inside a ``with some_gui.add_folder()``
+    block would leak that container target into a *different* GuiApi instance
+    (e.g. server.gui vs a client.gui) and raise KeyError on the foreign uuid."""
 
     def __init__(
         self,
@@ -205,6 +209,7 @@ class GuiApi:
 
         self._owner = owner
         """Entity that owns this API."""
+        self._target_container_from_thread_id = {}
         self._thread_executor = thread_executor
         self._event_loop = event_loop
 
@@ -403,6 +408,61 @@ class GuiApi:
             "lock": threading.Lock(),
         }
 
+        # A zero-byte file is sent with part_count == 0, so no FileTransferPart
+        # messages ever arrive to drive completion. Finish it here -- otherwise
+        # on_upload never fires and the transfer state leaks forever.
+        if message.part_count == 0:
+            self._websock_interface.queue_message(
+                FileTransferPartAck(
+                    source_component_uuid=message.source_component_uuid,
+                    transfer_uuid=message.transfer_uuid,
+                    transferred_bytes=0,
+                    total_bytes=0,
+                )
+            )
+            self._finish_file_upload(
+                client_id, message.transfer_uuid, message.source_component_uuid
+            )
+
+    def _finish_file_upload(
+        self,
+        client_id: ClientId,
+        transfer_uuid: str,
+        source_component_uuid: str,
+    ) -> None:
+        """Finalize a completed upload by assembling the file contents and
+        firing the handle's update callbacks. Shared by the normal multi-part
+        path and the zero-byte path (which has no parts)."""
+        state = self._current_file_upload_states.pop(transfer_uuid, None)
+        if state is None:
+            return
+
+        handle = self._gui_input_handle_from_uuid.get(source_component_uuid, None)
+        if handle is None or handle._impl.removed:
+            return
+        handle_state = handle._impl
+
+        value = UploadedFile(
+            name=state["filename"],
+            content=b"".join(state["parts"][i] for i in range(state["part_count"])),
+        )
+
+        # Update state.
+        handle_state.value = value
+        handle_state.update_timestamp = time.time()
+
+        # Trigger callbacks.
+        client = self._resolve_client(client_id)
+        if client is None:
+            return
+        for cb in handle_state.update_cb:
+            if asyncio.iscoroutinefunction(cb):
+                self._event_loop.create_task(cb(GuiEvent(client, client_id, handle)))
+            else:
+                self._thread_executor.submit(
+                    cb, GuiEvent(client, client_id, handle)
+                ).add_done_callback(print_threadpool_errors)
+
     def _handle_file_transfer_part(
         self, client_id: ClientId, message: _messages.FileTransferPart
     ) -> None:
@@ -432,36 +492,9 @@ class GuiApi:
 
         # Finish the upload.
         assert state["transferred_bytes"] == total_bytes
-        state = self._current_file_upload_states.pop(message.transfer_uuid)
-
-        handle = self._gui_input_handle_from_uuid.get(
-            message.source_component_uuid, None
+        self._finish_file_upload(
+            client_id, message.transfer_uuid, message.source_component_uuid
         )
-        if handle is None or handle._impl.removed:
-            return
-
-        handle_state = handle._impl
-
-        value = UploadedFile(
-            name=state["filename"],
-            content=b"".join(state["parts"][i] for i in range(state["part_count"])),
-        )
-
-        # Update state.
-        handle_state.value = value
-        handle_state.update_timestamp = time.time()
-
-        # Trigger callbacks.
-        client = self._resolve_client(client_id)
-        if client is None:
-            return
-        for cb in handle_state.update_cb:
-            if asyncio.iscoroutinefunction(cb):
-                self._event_loop.create_task(cb(GuiEvent(client, client_id, handle)))
-            else:
-                self._thread_executor.submit(
-                    cb, GuiEvent(client, client_id, handle)
-                ).add_done_callback(print_threadpool_errors)
 
     async def _handle_command_trigger(
         self, client_id: ClientId, message: _messages.CommandTriggerMessage
@@ -1790,9 +1823,17 @@ class GuiApi:
         Returns:
             A handle that can be used to interact with the GUI element.
         """
+        # Materialize once so a one-shot iterable isn't consumed by the checks
+        # below and again by the message construction.
+        options_tuple = tuple(options)
         value = initial_value
         if value is None:
-            value = options[0]
+            value = options_tuple[0]
+        elif value not in options_tuple:
+            raise ValueError(
+                f"Dropdown initial_value {value!r} is not one of the options "
+                f"{options_tuple!r}."
+            )
         uuid = _make_uuid()
         order = _apply_default_order(order)
         return GuiDropdownHandle(
@@ -1806,7 +1847,7 @@ class GuiApi:
                         order=order,
                         label=label,
                         hint=hint,
-                        options=tuple(options),
+                        options=options_tuple,
                         disabled=disabled,
                         visible=visible,
                     ),
@@ -2046,7 +2087,10 @@ class GuiApi:
         hint: str | None = None,
         order: float | None = None,
     ) -> GuiRgbHandle:
-        """Add an RGB picker to the GUI. All values should be in [0, 255].
+        """Add an RGB picker to the GUI.
+
+        Integer channels are in [0, 255]; float channels in [0, 1] are scaled to
+        match (matplotlib convention), so ``1.0`` is white.
 
         Args:
             label: Label to display on the RGB picker.
@@ -2060,7 +2104,7 @@ class GuiApi:
             A handle that can be used to interact with the GUI element.
         """
 
-        value = initial_value
+        value = cast("tuple[int, int, int]", _colors_to_int_tuple(initial_value))
         uuid = _make_uuid()
         order = _apply_default_order(order)
         return GuiRgbHandle(
@@ -2092,7 +2136,10 @@ class GuiApi:
         hint: str | None = None,
         order: float | None = None,
     ) -> GuiRgbaHandle:
-        """Add an RGBA picker to the GUI. All values should be in [0, 255].
+        """Add an RGBA picker to the GUI.
+
+        Integer channels are in [0, 255]; float channels in [0, 1] are scaled to
+        match (matplotlib convention), so ``1.0`` is white/opaque.
 
         Args:
             label: Label to display on the RGBA picker.
@@ -2105,7 +2152,7 @@ class GuiApi:
         Returns:
             A handle that can be used to interact with the GUI element.
         """
-        value = initial_value
+        value = cast("tuple[int, int, int, int]", _colors_to_int_tuple(initial_value))
         uuid = _make_uuid()
         order = _apply_default_order(order)
         return GuiRgbaHandle(

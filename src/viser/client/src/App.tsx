@@ -275,17 +275,15 @@ function ViewerRoot() {
     }, []),
   );
 
+  // `?darkMode` / embed darkMode forces dark mode. We OR it into the rendered
+  // color scheme in ViewerContents so it (a) wins over a server-sent theme --
+  // configure_theme defaults dark_mode=False, which would otherwise override
+  // the URL -- and (b) is correct on the very first paint, with no render-phase
+  // store write or post-mount flash.
+  const effectiveDarkMode = darkMode || embedConfig?.darkMode || false;
+
   // Create GUI state.
   const guiState = useGuiState(initialServer);
-
-  // Apply dark mode setting if provided via URL or embed config.
-  const effectiveDarkMode = darkMode || embedConfig?.darkMode;
-  if (effectiveDarkMode) {
-    const currentTheme = guiState.store.get().theme;
-    if (!currentTheme.dark_mode) {
-      guiState.store.set({ theme: { ...currentTheme, dark_mode: true } });
-    }
-  }
 
   // Create the context value with hooks and single ref.
   const viewer: ViewerContextContents = {
@@ -305,7 +303,7 @@ function ViewerRoot() {
 
   return (
     <ViewerContext.Provider value={viewer}>
-      <ViewerContents>
+      <ViewerContents forceDarkMode={effectiveDarkMode}>
         {messageSource === "websocket" && <WebsocketMessageProducer />}
         {messageSource === "file_playback" && (
           <PlaybackFromFile fileUrl={playbackPath!} />
@@ -321,9 +319,18 @@ function ViewerRoot() {
 /**
  * Main content wrapper with theme and layout.
  */
-function ViewerContents({ children }: { children: React.ReactNode }) {
+function ViewerContents({
+  children,
+  forceDarkMode,
+}: {
+  children: React.ReactNode;
+  forceDarkMode: boolean;
+}) {
   const viewer = React.useContext(ViewerContext)!;
-  const darkMode = viewer.useGui((state) => state.theme.dark_mode);
+  // `?darkMode` / embed darkMode forces dark mode and wins over the server's
+  // theme (configure_theme defaults dark_mode=False).
+  const storeDarkMode = viewer.useGui((state) => state.theme.dark_mode);
+  const darkMode = forceDarkMode || storeDarkMode;
   const colors = viewer.useGui((state) => state.theme.colors);
   const controlLayout = viewer.useGui((state) => state.theme.control_layout);
   const showLogo = viewer.useGui((state) => state.theme.show_logo);
@@ -538,6 +545,15 @@ function ViewerCanvas({ children }: { children: React.ReactNode }) {
     drawRectSelectOverlay(null);
   }, [drawRectSelectOverlay, interaction]);
 
+  // Keep a stable handle to the latest cancel callback. The blur/key effect
+  // below must NOT depend on `cancelActiveScenePointer` directly: that callback's
+  // identity changes whenever the Mantine theme changes (via
+  // `drawRectSelectOverlay`'s `[theme]` dep), and re-running the effect calls
+  // `cancelActiveScenePointer()` in its cleanup -- which would abort an in-flight
+  // scene-pointer gesture on every theme update.
+  const cancelActiveScenePointerRef = React.useRef(cancelActiveScenePointer);
+  cancelActiveScenePointerRef.current = cancelActiveScenePointer;
+
   // Held-modifier tracking. Three sources keep `hoverSet`'s
   // `heldModifier` in sync with reality:
   //   - `keydown`/`keyup`: live updates while the canvas is focused.
@@ -548,7 +564,7 @@ function ViewerCanvas({ children }: { children: React.ReactNode }) {
   //     waiting for the next keypress.
   React.useEffect(() => {
     const onBlur = () => {
-      cancelActiveScenePointer();
+      cancelActiveScenePointerRef.current();
       interaction.hover.setHeldModifier(null);
     };
     const onKey = (e: KeyboardEvent) => {
@@ -566,9 +582,9 @@ function ViewerCanvas({ children }: { children: React.ReactNode }) {
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("keyup", onKey);
-      cancelActiveScenePointer();
+      cancelActiveScenePointerRef.current();
     };
-  }, [cancelActiveScenePointer, interaction]);
+  }, [interaction]);
 
   // Canvas pointer handlers thin-delegate to the gestures module.
   // Side effects (camera lock, overlay draw, wire dispatch) happen
