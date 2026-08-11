@@ -26,7 +26,7 @@ import numpy.typing as npt
 from typing_extensions import Self, deprecated, override
 
 from . import _messages
-from ._assignable_props_api import AssignablePropsBase
+from ._assignable_props_api import AssignablePropsBase, colors_to_uint8
 from .infra._infra import (
     WebsockClientConnection,
     WebsockServer,
@@ -1235,6 +1235,70 @@ class GaussianSplatHandle(
 
         self.buffer = new_buffer
 
+    @staticmethod
+    def _pack_centers(buffer: np.ndarray, centers: np.ndarray) -> None:
+        buffer[:, 0:3] = np.ascontiguousarray(centers, dtype=np.float32).view(np.uint32)
+
+    @staticmethod
+    def _pack_covariances(buffer: np.ndarray, covariances: np.ndarray) -> None:
+        # Extract upper-triangular terms: indices [0,1,2,4,5,8] from flattened 3x3.
+        cov_triu = covariances.reshape((-1, 9))[:, np.array([0, 1, 2, 4, 5, 8])]
+        cov_triu_f16 = np.ascontiguousarray(cov_triu, dtype=np.float16)
+        buffer[:, 4:7] = cov_triu_f16.view(np.uint32)
+
+    @staticmethod
+    def _pack_rgba(
+        buffer: np.ndarray,
+        rgbs: np.ndarray | None = None,
+        opacities: np.ndarray | None = None,
+    ) -> None:
+        rgba = buffer[:, 7:8].view(np.uint8).reshape(-1, 4)
+        if rgbs is not None:
+            rgba[:, :3] = colors_to_uint8(rgbs)
+        if opacities is not None:
+            rgba[:, 3:4] = colors_to_uint8(opacities)
+        buffer[:, 7:8] = rgba.view(np.uint32)
+
+    def set_gaussians(
+        self,
+        centers: np.ndarray,
+        covariances: np.ndarray,
+        rgbs: np.ndarray,
+        opacities: np.ndarray,
+    ) -> None:
+        """Atomically update all Gaussian attributes, including count changes.
+
+        This is the preferred fast path when per-frame updates may change the
+        number of Gaussians: all attributes land in a single buffer update,
+        preventing transient mixed-state frames from sequential property
+        assignments (centers/covariances/rgbs/opacities one-by-one). A call
+        that leaves the buffer numerically unchanged sends no message.
+        """
+        assert centers.ndim == 2 and centers.shape[1] == 3, (
+            f"centers must have shape (N, 3), got {centers.shape}"
+        )
+        num_gaussians = centers.shape[0]
+        assert covariances.ndim == 3 and covariances.shape == (num_gaussians, 3, 3), (
+            f"covariances must have shape ({num_gaussians}, 3, 3), got {covariances.shape}"
+        )
+        assert rgbs.ndim == 2 and rgbs.shape == (num_gaussians, 3), (
+            f"rgbs must have shape ({num_gaussians}, 3), got {rgbs.shape}"
+        )
+        assert opacities.ndim == 2 and opacities.shape == (num_gaussians, 1), (
+            f"opacities must have shape ({num_gaussians}, 1), got {opacities.shape}"
+        )
+
+        # Assemble the full buffer locally, then store it with a single
+        # property assignment: props_setattr rejects writes to removed handles,
+        # resizes or copies in place as needed, and queues exactly one private
+        # snapshot for the wire. Routing a resize through _ensure_buffer_size
+        # here would queue an extra all-default buffer message first.
+        buffer = np.zeros((num_gaussians, 8), dtype=np.uint32)
+        self._pack_centers(buffer, centers)
+        self._pack_covariances(buffer, covariances)
+        self._pack_rgba(buffer, rgbs=rgbs, opacities=opacities)
+        self.buffer = buffer
+
     @property
     def centers(self) -> npt.NDArray[np.float32]:
         """Centers of the Gaussians. Shape: (N, 3). Synchronized automatically when assigned."""
@@ -1246,7 +1310,7 @@ class GaussianSplatHandle(
             f"centers must have shape (N, 3), got {centers.shape}"
         )
         self._ensure_buffer_size(centers.shape[0])
-        self.buffer[:, 0:3] = centers.astype(np.float32).view(np.uint32)
+        self._pack_centers(self.buffer, centers)
         # Queue a private snapshot: the stored buffer is mutated in place by
         # later sub-property assignments, possibly while the event loop is still
         # serializing this message. Matches the guard in props_setattr.
@@ -1260,15 +1324,11 @@ class GaussianSplatHandle(
 
     @rgbs.setter
     def rgbs(self, rgbs: np.ndarray) -> None:
-        from ._assignable_props_api import colors_to_uint8
-
         assert rgbs.ndim == 2 and rgbs.shape[1] == 3, (
             f"rgbs must have shape (N, 3), got {rgbs.shape}"
         )
         self._ensure_buffer_size(rgbs.shape[0])
-        rgba = self.buffer[:, 7:8].view(np.uint8).reshape(-1, 4)
-        rgba[:, :3] = colors_to_uint8(rgbs)
-        self.buffer[:, 7:8] = rgba.view(np.uint32)
+        self._pack_rgba(self.buffer, rgbs=rgbs)
         self._queue_update("buffer", self.buffer.copy())
 
     @property
@@ -1280,15 +1340,11 @@ class GaussianSplatHandle(
 
     @opacities.setter
     def opacities(self, opacities: np.ndarray) -> None:
-        from ._assignable_props_api import colors_to_uint8
-
         assert opacities.ndim == 2 and opacities.shape[1] == 1, (
             f"opacities must have shape (N, 1), got {opacities.shape}"
         )
         self._ensure_buffer_size(opacities.shape[0])
-        rgba = self.buffer[:, 7:8].view(np.uint8).reshape(-1, 4)
-        rgba[:, 3:4] = colors_to_uint8(opacities)
-        self.buffer[:, 7:8] = rgba.view(np.uint32)
+        self._pack_rgba(self.buffer, opacities=opacities)
         self._queue_update("buffer", self.buffer.copy())
 
     @property
@@ -1317,10 +1373,7 @@ class GaussianSplatHandle(
             f"covariances must have shape (N, 3, 3), got {covariances.shape}"
         )
         self._ensure_buffer_size(covariances.shape[0])
-        # Extract upper-triangular terms: indices [0,1,2,4,5,8] from flattened 3x3.
-        cov_triu = covariances.reshape((-1, 9))[:, np.array([0, 1, 2, 4, 5, 8])]
-        cov_triu_f16 = cov_triu.astype(np.float16)
-        self.buffer[:, 4:7] = np.ascontiguousarray(cov_triu_f16).view(np.uint32)
+        self._pack_covariances(self.buffer, covariances)
         self._queue_update("buffer", self.buffer.copy())
 
 
