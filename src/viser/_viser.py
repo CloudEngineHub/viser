@@ -555,6 +555,108 @@ class CameraHandle:
 NoneOrCoroutine = TypeVar("NoneOrCoroutine", None, Coroutine)
 
 
+class LocalStorageHandle:
+    """A handle for reading and writing this client's browser localStorage.
+
+    Keys are namespaced in the browser under a viser-specific prefix, so
+    values written here can't collide with — and :meth:`clear` can't wipe —
+    localStorage state that other applications keep on the same origin.
+    The prefix is an implementation detail: keys passed to these methods
+    should be the bare, unprefixed names."""
+
+    def __init__(self, client: ClientHandle) -> None:
+        self._client = client
+
+    def set_item(self, key: str, value: str) -> None:
+        """Set a key."""
+        self._client._websock_connection.queue_message(
+            _messages.LocalStorageSetItemMessage(key=key, value=value)
+        )
+
+    def remove_item(self, key: str) -> None:
+        """Remove a key."""
+        self._client._websock_connection.queue_message(
+            _messages.LocalStorageRemoveItemMessage(key=key)
+        )
+
+    def clear(self) -> None:
+        """Clear all keys that were written through this API. Other
+        localStorage state on the client's origin is left untouched."""
+        self._client._websock_connection.queue_message(
+            _messages.LocalStorageClearMessage()
+        )
+
+    def get_item(self, key: str, timeout: float | None = None) -> str | None:
+        """Return a value, or ``None`` if the key is absent.
+
+        Failure semantics match :meth:`ClientHandle.get_render`.
+
+        Args:
+            key: Key to read.
+            timeout: Optional maximum seconds to wait for the value. ``None``
+                (default) waits indefinitely; a disconnect still raises
+                promptly either way. Set this to bound a client that stays
+                connected but never returns a response (raises
+                ``TimeoutError``).
+
+        Raises:
+            RuntimeError: If the client disconnects before responding, or if
+                the browser blocks localStorage access.
+            TimeoutError: If ``timeout`` is set and exceeded.
+        """
+        request_uuid = _make_uuid()
+        response: dict[str, str | None] = {"value": None, "error": None}
+        ready_event = threading.Event()
+
+        def got_response(
+            client_id: int, message: _messages.LocalStorageGetItemResponseMessage
+        ) -> None:
+            del client_id
+            if message.request_uuid != request_uuid:
+                return
+            response["value"] = message.value
+            response["error"] = message.error
+            ready_event.set()
+
+        self._client._websock_connection.register_handler(
+            _messages.LocalStorageGetItemResponseMessage, got_response
+        )
+        try:
+            self._client._websock_connection.queue_message(
+                _messages.LocalStorageGetItemRequestMessage(
+                    key=key, request_uuid=request_uuid
+                )
+            )
+            self._client.flush()
+            # Poll rather than wait unbounded: a client that DISCONNECTS (tab
+            # closed, network drop) never sends a response, so this raises as
+            # soon as it leaves _connected_clients instead of hanging the
+            # caller (same rationale as get_render()).
+            deadline = None if timeout is None else time.time() + timeout
+            while not ready_event.wait(timeout=0.1):
+                if (
+                    self._client.client_id
+                    not in self._client._viser_server._connected_clients
+                ):
+                    raise RuntimeError(
+                        "localStorage request failed: the client disconnected "
+                        "before returning a response."
+                    )
+                if deadline is not None and time.time() > deadline:
+                    raise TimeoutError(
+                        f"localStorage request timed out after {timeout}s: "
+                        "the client did not return a response."
+                    )
+        finally:
+            self._client._websock_connection.unregister_handler(
+                _messages.LocalStorageGetItemResponseMessage, got_response
+            )
+
+        if response["error"] is not None:
+            raise RuntimeError(f"Failed to read localStorage: {response['error']}")
+        return response["value"]
+
+
 # Don't inherit from RenamedAttributeCompatShim during type checking, because
 # this will unnecessarily suppress type errors. (from the overriding of
 # __getattr__).
@@ -624,6 +726,8 @@ class ClientHandle(DeprecatedAttributeShim if not TYPE_CHECKING else object):
         """Handle for interacting with the GUI."""
         self.camera: CameraHandle = CameraHandle(self)
         """Handle for reading from and manipulating the client's viewport camera."""
+        self.local_storage: LocalStorageHandle = LocalStorageHandle(self)
+        """Handle for reading and writing the client's browser localStorage."""
 
     def flush(self) -> None:
         """Flush the outgoing message buffer. Any buffered messages will immediately be
