@@ -17,7 +17,7 @@ import {
   tableWrapper,
 } from "./SceneTreeTable.css";
 import { useDisclosure } from "@mantine/hooks";
-import { useForm } from "@mantine/form";
+import { useForm, UseFormReturnType } from "@mantine/form";
 import { ViewerContext } from "../ViewerContext";
 import { ownerOf, SceneNode } from "../SceneTreeState";
 import { shallowArrayEqual } from "../utils/shallowArrayEqual";
@@ -98,7 +98,7 @@ function PropInput({
 }: {
   propKey: string;
   descriptor: ScenePropDescriptor;
-  form: ReturnType<typeof useForm<Record<string, string>>>;
+  form: UseFormReturnType<Record<string, string>>;
   initialValues: Record<string, string>;
   stringify: (value: any) => string;
   parse: (value: string) => any;
@@ -329,7 +329,6 @@ function EditNodePropsInner({
       }
     }
     prevInitialValuesRef.current = initialValues;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodeMessage]);
 
   const handleSubmit = (values: Record<string, string>) => {

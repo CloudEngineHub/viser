@@ -81,7 +81,7 @@ function pushFloatsAheadOfSeam(
  * the drag-start canvas height on the GL backbuffer each frame. */
 export interface RegionResizeDeps {
   layoutRef: React.MutableRefObject<DockLayout>;
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
   containerWidthRef: React.MutableRefObject<number>;
   containerHeightRef: React.MutableRefObject<number>;
   /** Rendered region widths per edge (assigned by DockManager each render). */
@@ -278,8 +278,8 @@ export function useCanvasInsetSync({
 }: {
   /** `${leftInset}:${rightInset}` -- the effect re-arms when either changes. */
   insetKey: string;
-  canvasWrapRef: React.RefObject<HTMLDivElement>;
-  containerRef: React.RefObject<HTMLDivElement>;
+  canvasWrapRef: React.RefObject<HTMLDivElement | null>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
   onRegionResizeFrameRef: React.MutableRefObject<
     ((canvasWidth: number, canvasHeight: number) => void) | undefined
   >;
@@ -327,6 +327,5 @@ export function useCanvasInsetSync({
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [insetKey]);
 }

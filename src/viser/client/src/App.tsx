@@ -19,6 +19,7 @@ import {
   Divider,
   Image,
   MantineProvider,
+  v8CssVariablesResolver,
   Modal,
   Tooltip,
   createTheme,
@@ -370,6 +371,11 @@ function ViewerContents({
     <>
       <MantineProvider
         theme={mantineTheme}
+        // Mantine 9 changed the *-light CSS variables (light/subtle variant
+        // backgrounds) from translucent tints to opaque solids; in dark mode
+        // that turns e.g. every subtle ActionIcon's hover into a near-black
+        // fill instead of a soft lightening. Keep the v8 palette.
+        cssVariablesResolver={v8CssVariablesResolver}
         defaultColorScheme={darkMode ? "dark" : "light"}
         colorSchemeManager={{
           // Mock external color scheme manager. This prevents multiple Viser
@@ -568,6 +574,9 @@ function NotificationsPanel({
       limit={10}
       containerWidth="20em"
       withinPortal={false}
+      // Mantine 9 changed the default so hovering one notification pauses
+      // the timers of all of them; keep the v8 per-notification behavior.
+      pauseResetOnHover="notification"
       styles={{
         root: {
           boxShadow: "0.1em 0 1em 0 rgba(0,0,0,0.1) !important",
@@ -1073,7 +1082,9 @@ function Viewer2DCanvas() {
 
   return (
     <canvas
-      ref={(el) => (viewer.mutable.current.canvas2d = el)}
+      ref={(el) => {
+        viewer.mutable.current.canvas2d = el;
+      }}
       style={{
         position: "absolute",
         zIndex: 1,

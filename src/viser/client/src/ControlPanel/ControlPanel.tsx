@@ -236,7 +236,7 @@ function MobilePanelSection({ panel }: { panel: GuiPanelMessage }) {
           {chevron}
         </Box>
       )}
-      <Collapse in={expanded}>
+      <Collapse expanded={expanded}>
         {multiTab ? (
           ids.map((containerUuid) => (
             <Tabs.Panel value={containerUuid} key={containerUuid}>
@@ -281,6 +281,43 @@ function PanelsFallback() {
   );
 }
 
+/** Collapse that keeps its children laid out (not just mounted) while
+ * collapsed: the wrapper clips to zero height, but content keeps its natural
+ * size and is never `display: none`, so children can measure themselves at
+ * any time. This reproduces Mantine 8's `Collapse keepMounted` behavior,
+ * which prevented intermittent problems with the initial GUI height being
+ * set to 0 under high CPU load. Mantine 9 can't express this: both of its
+ * keepMounted modes (React Activity and display:none) take collapsed content
+ * out of layout. */
+function LayoutKeptCollapse({
+  expanded,
+  children,
+}: {
+  expanded: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Box
+      style={{
+        display: "grid",
+        gridTemplateRows: expanded ? "1fr" : "0fr",
+        transition: "grid-template-rows 200ms ease",
+      }}
+    >
+      <Box
+        style={{
+          overflow: "hidden",
+          minHeight: 0,
+          opacity: expanded ? 1 : 0,
+          transition: "opacity 200ms ease",
+        }}
+      >
+        {children}
+      </Box>
+    </Box>
+  );
+}
+
 /** The control panel's body: server controls / generated GUI, toggled by the
  * settings button in the handle. Shared by every panel chrome (bottom sheet,
  * sidebar, and the dock-library floating panel). */
@@ -292,17 +329,14 @@ export function ControlPanelContents({
   const showGenerated = useShowGenerated();
   return (
     <>
-      <Collapse in={!showGenerated || showSettings}>
+      <Collapse expanded={!showGenerated || showSettings}>
         <Box p="xs" pt="0.375em">
           <ServerControls />
         </Box>
       </Collapse>
-      {/*As of Mantine 8.3.3, this `keepMounted` is necessary to prevent some
-      intermittent problems with the initial GUI height being set to 0 when
-      we're under high CPU load.*/}
-      <Collapse in={showGenerated && !showSettings} keepMounted>
+      <LayoutKeptCollapse expanded={showGenerated && !showSettings}>
         <MemoizedGeneratedGuiContainer containerUuid={ROOT_CONTAINER_ID} />
-      </Collapse>
+      </LayoutKeptCollapse>
       {!showSettings && <PanelsFallback />}
     </>
   );
@@ -626,7 +660,7 @@ export function ShareButton() {
                   </Button>
                 </Tooltip>
               </Flex>
-              <Collapse in={showQrCode}>
+              <Collapse expanded={showQrCode}>
                 <QRCode
                   value={shareUrl}
                   fgColor={colorScheme === "dark" ? "#ffffff" : "#000000"}
