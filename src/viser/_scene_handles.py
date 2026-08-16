@@ -312,8 +312,8 @@ class SceneNodeHandle(AssignablePropsBase[_SceneNodeHandleState]):
                 #    namespaces -- a late joiner would apply the OLD pose to the
                 #    NEW node. Purge them (mirrors the remove()/GC sweep); the
                 #    new node's own state is queued below.
-                api._websock_interface.get_message_buffer().remove_from_buffer(
-                    lambda m: m.targets_entity_state("scene", name),
+                api._websock_interface.get_message_buffer().remove_entity_state_from_buffer(
+                    "scene", name
                 )
                 # 3. LIVE clients keep interaction bindings across a same-name
                 #    create (deliberate, for reconnect replays), so the buffer
@@ -953,6 +953,42 @@ class _RaycastSupportedSceneNodeHandle(SceneNodeHandle):
         self._impl._last_published_click_bindings = bindings
 
 
+class _SupportsThickness(Protocol):
+    """Line-style props shared by every handle carrying the deprecated
+    ``line_width`` alias."""
+
+    thickness: float
+    thickness_units: Literal["screen", "world"]
+
+
+def _get_deprecated_line_width(handle: _SupportsThickness) -> float:
+    """Shared body of the deprecated ``line_width`` getters."""
+    warnings.warn(
+        "The 'line_width' property is deprecated. Use 'thickness' instead.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    return handle.thickness
+
+
+def _set_deprecated_line_width(handle: _SupportsThickness, value: float) -> None:
+    """Shared body of the deprecated ``line_width`` setters."""
+    warnings.warn(
+        "The 'line_width' property is deprecated; assigning it forces "
+        "thickness_units='screen' so the value keeps its historical "
+        "pixel meaning. Use 'thickness' with 'thickness_units' instead.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    # line_width was always screen-space pixels; pin the units so the
+    # assigned value keeps that meaning even on a handle created with the
+    # new world-space thickness defaults. Units first: on a live client the
+    # transient (old thickness, "screen") state renders as a briefly-thin
+    # line rather than a world-units-wide ribbon.
+    handle.thickness_units = "screen"
+    handle.thickness = value
+
+
 class CameraFrustumHandle(
     _RaycastSupportedSceneNodeHandle,
     _messages.CameraFrustumProps,
@@ -968,22 +1004,12 @@ class CameraFrustumHandle(
             Use 'thickness' instead; it is interpreted in the units given
             by 'thickness_units'.
         """
-        warnings.warn(
-            "The 'line_width' property is deprecated. Use 'thickness' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.thickness
+        return _get_deprecated_line_width(self)
 
     @line_width.setter
     @deprecated("The 'line_width' property is deprecated. Use 'thickness' instead.")
     def line_width(self, value: float) -> None:
-        warnings.warn(
-            "The 'line_width' property is deprecated. Use 'thickness' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.thickness = value
+        _set_deprecated_line_width(self, value)
 
     _image: np.ndarray | None
     _jpeg_quality: int | None
@@ -1480,22 +1506,12 @@ class LineSegmentsHandle(
             Use 'thickness' instead; it is interpreted in the units given
             by 'thickness_units'.
         """
-        warnings.warn(
-            "The 'line_width' property is deprecated. Use 'thickness' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.thickness
+        return _get_deprecated_line_width(self)
 
     @line_width.setter
     @deprecated("The 'line_width' property is deprecated. Use 'thickness' instead.")
     def line_width(self, value: float) -> None:
-        warnings.warn(
-            "The 'line_width' property is deprecated. Use 'thickness' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.thickness = value
+        _set_deprecated_line_width(self, value)
 
 
 class ArrowsHandle(
@@ -1503,6 +1519,35 @@ class ArrowsHandle(
     _messages.ArrowProps,
 ):
     """Handle for arrow objects."""
+
+    @property
+    @deprecated("The 'line_width' property is deprecated and has no effect.")
+    def line_width(self) -> float:
+        """Deprecated; arrows no longer have a line-width fallback rendering
+        path.
+
+        .. deprecated::
+            Reads return the legacy default (1.0); writes warn and are
+            ignored.
+        """
+        warnings.warn(
+            "The 'line_width' property is deprecated and has no effect: "
+            "arrows no longer have a line-width fallback rendering path.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return 1.0
+
+    @line_width.setter
+    @deprecated("The 'line_width' property is deprecated and has no effect.")
+    def line_width(self, value: float) -> None:
+        del value
+        warnings.warn(
+            "The 'line_width' property is deprecated and has no effect: "
+            "arrows no longer have a line-width fallback rendering path.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
 
 class SplineCatmullRomHandle(
@@ -1520,22 +1565,12 @@ class SplineCatmullRomHandle(
             Use 'thickness' instead; it is interpreted in the units given
             by 'thickness_units'.
         """
-        warnings.warn(
-            "The 'line_width' property is deprecated. Use 'thickness' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.thickness
+        return _get_deprecated_line_width(self)
 
     @line_width.setter
     @deprecated("The 'line_width' property is deprecated. Use 'thickness' instead.")
     def line_width(self, value: float) -> None:
-        warnings.warn(
-            "The 'line_width' property is deprecated. Use 'thickness' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.thickness = value
+        _set_deprecated_line_width(self, value)
 
     @property
     @deprecated("The 'positions' property is deprecated. Use 'points' instead.")
@@ -1582,22 +1617,12 @@ class SplineCubicBezierHandle(
             Use 'thickness' instead; it is interpreted in the units given
             by 'thickness_units'.
         """
-        warnings.warn(
-            "The 'line_width' property is deprecated. Use 'thickness' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.thickness
+        return _get_deprecated_line_width(self)
 
     @line_width.setter
     @deprecated("The 'line_width' property is deprecated. Use 'thickness' instead.")
     def line_width(self, value: float) -> None:
-        warnings.warn(
-            "The 'line_width' property is deprecated. Use 'thickness' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.thickness = value
+        _set_deprecated_line_width(self, value)
 
     @property
     @deprecated(

@@ -192,6 +192,27 @@ def _compute_precision_digits(x: float) -> int:
     return digits
 
 
+def _compute_precision_digits_covering(
+    *values: float | tuple[float, ...] | np.ndarray | None,
+) -> int:
+    """Display digits covering every provided value (Nones skipped, tuples /
+    arrays elementwise). Numeric widgets limit displayed AND typed decimals
+    to their ``precision`` via ``decimalScale``, so precision derived from
+    ``step`` alone rounded away legitimate values: a slider's legal values
+    are ``min + k * step`` clamped to ``max`` (with ``min=0.5, step=1.0``
+    the box displayed 2.5 as "3" and rejected typed decimals), and a number
+    input's creation-time value/bounds may be finer than an explicit step
+    (``initial_value=0.25, step=0.5`` displayed as "0.2")."""
+    digits = 0
+    for value in values:
+        if value is None:
+            continue
+        for x in np.atleast_1d(np.asarray(value, dtype=np.float64)):
+            if np.isfinite(x):
+                digits = builtins.max(digits, _compute_precision_digits(float(x)))
+    return digits
+
+
 @dataclasses.dataclass
 class _RootGuiContainer:
     _children: dict[str, SupportsRemoveProtocol]
@@ -2152,7 +2173,9 @@ class GuiApi:
                         hint=hint,
                         min=min,
                         max=max,
-                        precision=_compute_precision_digits(step),
+                        precision=_compute_precision_digits_covering(
+                            value, min, max, step
+                        ),
                         step=step,
                         disabled=disabled,
                         visible=visible,
@@ -2230,7 +2253,9 @@ class GuiApi:
                         min=min,
                         max=max,
                         step=step,
-                        precision=_compute_precision_digits(step),
+                        precision=_compute_precision_digits_covering(
+                            initial_value, min, max, step
+                        ),
                         disabled=disabled,
                         visible=visible,
                     ),
@@ -2306,7 +2331,9 @@ class GuiApi:
                         min=min,
                         max=max,
                         step=step,
-                        precision=_compute_precision_digits(step),
+                        precision=_compute_precision_digits_covering(
+                            initial_value, min, max, step
+                        ),
                         disabled=disabled,
                         visible=visible,
                     ),
@@ -2527,7 +2554,9 @@ class GuiApi:
                         min=min,
                         max=max,
                         step=step,
-                        precision=_compute_precision_digits(step),
+                        precision=_compute_precision_digits_covering(
+                            value, min, max, step
+                        ),
                         visible=visible,
                         disabled=disabled,
                         _marks=_build_slider_marks(marks),
@@ -2632,7 +2661,9 @@ class GuiApi:
                         visible=visible,
                         disabled=disabled,
                         fixed_endpoints=fixed_endpoints,
-                        precision=_compute_precision_digits(step),
+                        precision=_compute_precision_digits_covering(
+                            initial_value, min, max, step
+                        ),
                         _marks=_build_slider_marks(marks),
                     ),
                 ),

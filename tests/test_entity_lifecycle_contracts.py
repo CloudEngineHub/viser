@@ -299,18 +299,58 @@ def test_gc_two_pass_purges_update_buffered_after_tombstone() -> None:
     # Wipe any startup traffic so we control the ordering exactly.
     buf.message_from_id.clear()
     buf.id_from_redundancy_key.clear()
+    buf.ids_from_entity_state_key.clear()
 
     remove = RemoveSceneNodeMessage(name="/ghost")
     update = SceneNodeUpdateMessage(name="/ghost", updates={"visible": False})
-    # Remove at low id, Update at high id -- the reorder scenario.
-    buf.message_from_id[10] = remove
-    buf.id_from_redundancy_key[remove.redundancy_key()] = 10
-    buf.message_from_id[20] = update
-    buf.id_from_redundancy_key[update.redundancy_key()] = 20
+    # Remove first, Update after: the update lands at a HIGHER id than the
+    # tombstone -- exactly the ordering push()'s remove-time purge cannot
+    # see. Pushed through the real write path so the buffer's entity-state
+    # index (which the GC's second pass consults) is populated.
+    buf.push(remove)
+    buf.push(update)
+    remove_id = next(mid for mid, m in buf.message_from_id.items() if m is remove)
+    update_id = next(mid for mid, m in buf.message_from_id.items() if m is update)
+    assert remove_id < update_id
 
     server._run_garbage_collector(force=True)
-    assert 10 not in buf.message_from_id, "tombstone not purged"
-    assert 20 not in buf.message_from_id, "late update survived tombstone"
+    assert remove_id not in buf.message_from_id, "tombstone not purged"
+    assert update_id not in buf.message_from_id, "late update survived tombstone"
+
+
+@patch.object(viser._client_autobuild, "ensure_client_is_built", lambda: None)
+def test_same_name_readd_purges_stale_state_only() -> None:
+    """Same-name replacement purges the OLD node's buffered per-entity state
+    (a late joiner must never apply the old pose to the new node) while
+    leaving other nodes' buffered state untouched. The purge goes through
+    the buffer's entity-state index; the sibling invariant tests in
+    test_message_buffer.py pin the index itself, this pins the end-to-end
+    replacement path."""
+    from .infra_utils import assert_entity_index_consistent, broadcast_messages
+    from .utils import viser_server
+
+    with viser_server() as server:
+        bystander = server.scene.add_frame("/bystander")
+        bystander.position = (7.0, 8.0, 9.0)
+
+        target = server.scene.add_frame("/target")
+        target.position = (9.0, 9.0, 9.0)
+        server.scene.add_frame("/target")  # Same-name replacement.
+
+        def positions_for(name: str) -> list:
+            return [
+                m.position
+                for m in broadcast_messages(server)
+                if isinstance(m, SetPositionMessage) and m.name == name
+            ]
+
+        # The old pose is purged; what remains is the replacement's forced
+        # default-pose broadcast (which live clients need, since they keep
+        # node state across same-name creates).
+        assert positions_for("/target") == [(0.0, 0.0, 0.0)]
+        assert positions_for("/bystander") == [(7.0, 8.0, 9.0)]
+
+        assert_entity_index_consistent(server._websock_server._broadcast_buffer)
 
 
 @patch.object(viser._client_autobuild, "ensure_client_is_built", lambda: None)

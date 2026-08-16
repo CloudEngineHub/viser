@@ -105,11 +105,72 @@ def test_handle_line_width_alias(server: viser.ViserServer) -> None:
     assert handle.thickness == 0.07
 
 
+def test_handle_line_width_setter_forces_screen_units(
+    server: viser.ViserServer,
+) -> None:
+    """Assigning the deprecated alias keeps its historical pixel meaning:
+    even on a handle created with world-space thickness, the setter pins
+    thickness_units to "screen" so a v1.0.x "3 px" intent doesn't become 3
+    world units."""
+    handle = server.scene.add_line_segments(
+        "/segments-world", points=_SEGMENT_POINTS, colors=(255, 0, 0)
+    )
+    assert handle.thickness_units == "world"
+    with pytest.warns(DeprecationWarning, match="screen"):
+        handle.line_width = 3.0
+    assert handle.thickness == 3.0
+    assert handle.thickness_units == "screen"
+
+
 def test_unknown_kwargs_still_rejected(server: viser.ViserServer) -> None:
     with pytest.raises(TypeError, match="Unexpected keyword"):
         server.scene.add_line_segments(
             "/segments",
             points=_SEGMENT_POINTS,
+            colors=(255, 0, 0),
+            line_widht=3.0,  # type: ignore
+        )
+
+
+_ARROW_POINTS = np.array([[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]])
+
+
+def test_add_arrows_line_width_warns_and_is_ignored(
+    server: viser.ViserServer,
+) -> None:
+    """Arrows have no thickness equivalent (the old prop only fed a client
+    fallback rendering path that no longer exists), so the deprecated kwarg
+    is accepted with a warning rather than raising TypeError like an unknown
+    kwarg would."""
+    with pytest.warns(DeprecationWarning, match="line_width"):
+        handle = server.scene.add_arrows(
+            "/arrows",
+            points=_ARROW_POINTS,
+            colors=(255, 0, 0),
+            line_width=2.0,  # pyright: ignore[reportArgumentType]
+        )
+    assert handle.name == "/arrows"
+
+
+def test_arrows_handle_line_width_alias_warns_and_noops(
+    server: viser.ViserServer,
+) -> None:
+    handle = server.scene.add_arrows(
+        "/arrows2", points=_ARROW_POINTS, colors=(255, 0, 0)
+    )
+    with pytest.warns(DeprecationWarning, match="no effect"):
+        handle.line_width = 3.0
+    with pytest.warns(DeprecationWarning, match="no effect"):
+        assert handle.line_width == 1.0
+
+
+def test_add_arrows_unknown_kwargs_still_rejected(
+    server: viser.ViserServer,
+) -> None:
+    with pytest.raises(TypeError, match="Unexpected keyword"):
+        server.scene.add_arrows(
+            "/arrows3",
+            points=_ARROW_POINTS,
             colors=(255, 0, 0),
             line_widht=3.0,  # type: ignore
         )
