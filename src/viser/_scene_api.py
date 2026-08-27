@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import functools
 import inspect
 import io
 import math
@@ -10,6 +11,7 @@ import warnings
 from collections.abc import Coroutine
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -104,6 +106,32 @@ class _PointerCallbackEntry:
     event_type: _messages.ScenePointerEventType
     modifier: _messages.KeyModifier | None
     event_class: type
+
+
+# HDR JPEG (gainmap format) environment map presets, shipped with the Python
+# package and sent to the client over the websocket. Keeping them out of the
+# client bundle keeps the built client small; the client only embeds the
+# default ("city") preset.
+_HDRI_FILENAMES = {
+    "apartment": "lebombo_1k.jpg",
+    "city": "potsdamer_platz_1k.jpg",
+    "dawn": "kiara_1_dawn_1k.jpg",
+    "forest": "forest_slope_1k.jpg",
+    "lobby": "st_fagans_interior_1k.jpg",
+    "night": "dikhololo_night_1k.jpg",
+    "park": "rooitou_park_1k.jpg",
+    "studio": "studio_small_03_1k.jpg",
+    "sunset": "venice_sunset_1k.jpg",
+    "warehouse": "empty_warehouse_01_1k.jpg",
+}
+
+
+@functools.lru_cache(maxsize=None)
+def _read_hdri_preset(hdri: str) -> bytes:
+    """Read a preset's HDR JPEG bytes, cached across calls."""
+    return (
+        Path(__file__).absolute().parent / "_assets" / "hdri" / _HDRI_FILENAMES[hdri]
+    ).read_bytes()
 
 
 def _modifier_matches_filter(
@@ -918,6 +946,11 @@ class SceneApi:
     ) -> None:
         """Configure the environment map for the scene. This will set some lights and background.
 
+        Each call sends the preset's HDR JPEG (roughly 30-130 KB) to
+        connected clients, since the client no longer embeds the presets. To
+        animate the scalar parameters (intensities, orientations), prefer
+        infrequent updates or accept the per-call payload cost.
+
         Args:
             hdri: Preset HDRI environment to use.
             background: Show or hide the environment map in the background.
@@ -927,9 +960,10 @@ class SceneApi:
             environment_intensity: Intensity of the environment lighting.
             environment_wxyz: Orientation of the environment lighting.
         """
+        hdri_data = None if hdri is None else _read_hdri_preset(hdri)
         self._websock_interface.queue_message(
             _messages.EnvironmentMapMessage(
-                hdri=hdri,
+                hdri_data=hdri_data,
                 background=background,
                 background_blurriness=background_blurriness,
                 background_intensity=background_intensity,
