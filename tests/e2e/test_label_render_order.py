@@ -18,33 +18,12 @@ without camera priming does the reverse -- live correct, captures inverted.
 
 from __future__ import annotations
 
-from typing import Generator
-
 import numpy as np
-import pytest
 from playwright.sync_api import Browser
 
 import viser
-import viser._client_autobuild
 
-from .utils import connect_client, find_free_port, wait_for_server_ready
-
-
-@pytest.fixture()
-def own_server() -> Generator[viser.ViserServer, None, None]:
-    viser._client_autobuild.ensure_client_is_built = lambda: None
-    server: viser.ViserServer | None = None
-    for attempt in range(3):
-        try:
-            server = viser.ViserServer(port=find_free_port(), verbose=False)
-            break
-        except OSError:
-            if attempt == 2:
-                raise
-    assert server is not None
-    wait_for_server_ready(server.get_port())
-    yield server
-    server.stop()
+from .utils import connect_client
 
 
 def _dark_pixels(rgb: np.ndarray) -> int:
@@ -101,8 +80,8 @@ def _assert_glyphs_dark_on_both_surfaces(
     (issue #767), while get_render() captures invert when the compensating
     sort is applied to a fresh camera whose reversedDepth flag is not yet set.
 
-    Label text rasterizes asynchronously (troika builds the SDF glyph atlas
-    off the main thread), so early frames can legitimately predate the glyphs;
+    Label glyphs stream in over frames (LabelRenderer rasterizes them under
+    a per-frame budget), so early frames can legitimately predate the glyphs;
     polling until the deadline separates "not rendered yet" from "rendered in
     the wrong order", which never darkens no matter how long we wait.
     """
@@ -127,16 +106,16 @@ def _assert_glyphs_dark_on_both_surfaces(
 
 
 def test_label_glyphs_render_dark(
-    own_server: viser.ViserServer, browser: Browser
+    viser_server: viser.ViserServer, browser: Browser
 ) -> None:
     """A captured label must contain near-black glyph pixels.
 
     This is issue #767's symptom distilled: with the draw order inverted, the
     white background quad paints over the glyphs and no pixel in the frame
     is darker than ~217 gray, so the count below drops to zero."""
-    client, page, context = connect_client(own_server, browser)
+    client, page, context = connect_client(viser_server, browser)
     try:
-        own_server.scene.add_label(
+        viser_server.scene.add_label(
             "/label", "Label", position=(0.0, 0.0, 0.0), font_screen_scale=2.0
         )
         client.camera.position = (0.0, -4.0, 0.0)
@@ -150,7 +129,7 @@ def test_label_glyphs_render_dark(
 
 
 def test_label_glyphs_render_above_splats(
-    own_server: viser.ViserServer, browser: Browser
+    viser_server: viser.ViserServer, browser: Browser
 ) -> None:
     """Label text must composite over a co-located Gaussian splat cloud.
 
@@ -159,7 +138,7 @@ def test_label_glyphs_render_above_splats(
     ordering regresses -- an inverted sort, or a renderOrder collision decided
     by the projected-z tie again -- the cloud paints over the glyphs and the
     dark-pixel count collapses."""
-    client, page, context = connect_client(own_server, browser)
+    client, page, context = connect_client(viser_server, browser)
     try:
         # A dense white splat blob centered on the label's position, so glyphs
         # keep their contrast against it if (and only if) they draw on top.
@@ -167,14 +146,14 @@ def test_label_glyphs_render_above_splats(
         n = 2000
         centers = rng.normal(0.0, 0.4, (n, 3)).astype(np.float32)
         covariances = np.tile(np.eye(3, dtype=np.float32) * 0.01, (n, 1, 1))
-        own_server.scene.add_gaussian_splats(
+        viser_server.scene.add_gaussian_splats(
             "/splats",
             centers=centers,
             covariances=covariances,
             rgbs=np.full((n, 3), 255, dtype=np.uint8),
             opacities=np.full((n, 1), 0.9, dtype=np.float32),
         )
-        own_server.scene.add_label(
+        viser_server.scene.add_label(
             "/label", "Label", position=(0.0, 0.0, 0.0), font_screen_scale=2.0
         )
         client.camera.position = (0.0, -4.0, 0.0)

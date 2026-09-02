@@ -76,12 +76,16 @@ export function parseAnchor(anchor: string): {
 
 /** Split text into grapheme clusters (so emoji / combining marks stay
  * together), using Intl.Segmenter when available. */
+let cachedSegmenter: Intl.Segmenter | undefined;
+
 export function segmentGraphemes(text: string): string[] {
   if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
-    const segmenter = new Intl.Segmenter(undefined, {
+    // Cached: this runs per label per frame while glyph rasterization is
+    // streaming, and Segmenter construction is not free.
+    cachedSegmenter ??= new Intl.Segmenter(undefined, {
       granularity: "grapheme",
     });
-    return Array.from(segmenter.segment(text), (s) => s.segment);
+    return Array.from(cachedSegmenter.segment(text), (s) => s.segment);
   }
   return Array.from(text);
 }
@@ -134,17 +138,16 @@ export function layoutLabel(
 
   const glyphs: GlyphPlacement[] = [];
   measuredLines.forEach((line, lineIndex) => {
-    // Center each line horizontally within the block, matching troika's
-    // default multi-line alignment for centered labels; for left/right
-    // anchors the block itself is offset, and lines stay centered (this
-    // matches textAlign: center behavior).
-    const lineStart = (width - line.width) / 2;
+    // Lines are left-aligned within the block, matching the previous
+    // troika-based implementation (which used troika's default
+    // textAlign: "left"); the anchor offsets below position the block
+    // itself.
     const baselineY = lineIndex * lineHeight + metrics.ascent;
     line.clusters.forEach((cluster, i) => {
       if (cluster.trim() === "") return; // Whitespace needs no quad.
       glyphs.push({
         cluster,
-        x: lineStart + line.offsets[i],
+        x: line.offsets[i],
         baselineY,
       });
     });
